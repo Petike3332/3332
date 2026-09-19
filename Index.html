@@ -138,6 +138,9 @@
     .map-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 1000; background: rgba(255,255,255,0.96); padding: 12px 16px; border-radius: 14px; font-size: 14px; color: #666; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; max-width: 80%; }
     .map-fallback { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 900; background: var(--bg-color); overflow-y: auto; padding: 16px; display: none; }
     .popup-links a { color: #007aff; font-weight: 600; font-size: 12px; text-decoration: none; }
+    .popup-move { display: block; width: 100%; margin-top: 8px; background: #007aff; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .pin.moving { background: #ff9500; box-shadow: 0 0 0 7px rgba(255,149,0,0.35), 0 2px 6px rgba(0,0,0,0.4); }
+    .move-bar { position: absolute; left: 10px; right: 10px; bottom: 34px; z-index: 1000; background: #fff; border-radius: 16px; padding: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); display: none; }
 
     /* Bottom nav */
     nav.ios-nav { height: var(--nav-height); background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: flex-start; padding-top: 8px; position: relative; z-index: 100; flex-shrink: 0; }
@@ -268,6 +271,13 @@
       <div id="map-frame"></div>
       <div class="map-banner" id="map-banner"></div>
       <div class="map-empty" id="map-empty">No jobs on the map yet.<br>Add a job with an address in Customers.</div>
+      <div class="move-bar" id="move-bar">
+        <div id="move-text" style="font-size: 13px; line-height: 1.35; margin-bottom: 10px;"></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button type="button" class="ios-input" style="background: #e5e5ea; text-align: center; font-weight: 600; padding: 10px;" onclick="cancelMove()">Cancel</button>
+          <button type="button" class="btn-blue" style="justify-content: center; font-weight: 700; background: #34c759;" onclick="saveMove()">Save location</button>
+        </div>
+      </div>
       <div class="map-fallback" id="map-fallback"></div>
     </div>
 
@@ -320,6 +330,7 @@
         <button style="width: 100%; background: #ffe5e5; color: #ff3b30; border: none; border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer;" onclick="resetDemoData()">
           Reset Demo Data & Customer Pins
         </button>
+        <div style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 14px;">Version 6 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -543,6 +554,7 @@
       const i = TABS.indexOf(tabId);
       if (i !== -1) document.querySelectorAll('.nav-btn')[i].classList.add('active');
       // The map is created only once its tab is visible, so it always gets a real size
+      if (tabId !== 'tab-map' && moving) cancelMove();
       if (tabId === 'tab-map') setTimeout(showMap, 60);
     }
 
@@ -1084,7 +1096,8 @@
 
     function retryMap() {
       if (map) { map.remove(); map = null; markerLayer = null; tileLayer = null; }
-      libTries = 0; mapDirty = true;
+      libTries = 0; mapDirty = true; moving = null; markersById = {};
+      $('move-bar').style.display = 'none';
       $('map-banner').style.display = 'none';
       showMap();
     }
@@ -1099,9 +1112,58 @@
       });
     }
 
-    function pinIcon(status) {
+    let moving = null;      // { id, marker, lat, lng } while a pin is being repositioned
+    let markersById = {};
+
+    function pinIcon(status, isMoving) {
       const cls = status === 'New' ? 'new' : status === 'In Progress' ? 'progress' : 'completed';
-      return L.divIcon({ className: 'pin-wrap', html: `<div class="pin ${cls}"></div>`, iconSize: [26, 26], iconAnchor: [13, 26], popupAnchor: [0, -24] });
+      return L.divIcon({ className: 'pin-wrap', html: `<div class="pin ${cls}${isMoving ? ' moving' : ''}"></div>`, iconSize: [26, 26], iconAnchor: [13, 26], popupAnchor: [0, -24] });
+    }
+
+    function pinPopupHtml(id) {
+      const c = findCustomer(id);
+      if (!c) return '';
+      const l = mapsLinks(c);
+      return `<div style="padding:2px;">
+        <strong>${esc(c.name)}</strong><br>
+        <span style="color:#007aff;font-size:12px;">${esc(c.project)}</span><br>
+        <small>${esc(c.address)}</small><br>
+        <span class="popup-links"><a href="${l.apple}" target="_blank" rel="noopener">Apple Maps</a> · <a href="${l.google}" target="_blank" rel="noopener">Google Maps</a></span>
+        <button type="button" class="popup-move" data-id="${esc(c.id)}" onclick="startMove(this.dataset.id)">📍 Move pin</button>
+      </div>`;
+    }
+
+    /* ---- Move a pin to the correct spot ---- */
+    function startMove(id) {
+      const c = findCustomer(id), m = markersById[id];
+      if (!c || !m || !map) return;
+      if (moving) cancelMove();
+      moving = { id, marker: m, lat: c.lat, lng: c.lng };
+      map.closePopup();
+      m.setIcon(pinIcon(c.status, true));
+      m.dragging.enable();
+      map.setView([c.lat, c.lng], Math.max(map.getZoom(), 17));
+      $('move-text').innerHTML = `<b>Moving ${esc(c.name)}</b><br>Drag the pin, or tap the map where it should go.`;
+      $('move-bar').style.display = 'block';
+    }
+
+    function endMove(restore) {
+      if (!moving) return;
+      const c = findCustomer(moving.id), m = moving.marker;
+      if (restore) m.setLatLng([moving.lat, moving.lng]);
+      m.dragging.disable();
+      if (c) m.setIcon(pinIcon(c.status));
+      moving = null;
+      $('move-bar').style.display = 'none';
+    }
+    function cancelMove() { endMove(true); }
+
+    function saveMove() {
+      if (!moving) return;
+      const c = findCustomer(moving.id), p = moving.marker.getLatLng();
+      if (c) { c.lat = p.lat; c.lng = p.lng; saveAll(); }
+      endMove(false);
+      toast('Pin location saved');
     }
 
     function showMap() {
@@ -1117,25 +1179,24 @@
         map = L.map('map-frame', { zoomControl: false }).setView([54.0, -2.5], 6);
         markerLayer = L.layerGroup().addTo(map);
         useTileSource(0);
+        // While a pin is being moved, tapping the map puts it there
+        map.on('click', e => { if (moving) moving.marker.setLatLng(e.latlng); });
         mapDirty = true;
       }
       map.invalidateSize();
 
       if (mapDirty) {
+        if (moving) cancelMove();
         markerLayer.clearLayers();
+        markersById = {};
         const pts = [];
         customers.forEach(c => {
           if (!(c.lat && c.lng)) return;
-          const l = mapsLinks(c);
           const marker = L.marker([c.lat, c.lng], { icon: pinIcon(c.status) }).addTo(markerLayer);
           marker.customerName = c.name;
-          marker.bindPopup(`
-            <div style="padding:2px;">
-              <strong>${esc(c.name)}</strong><br>
-              <span style="color:#007aff;font-size:12px;">${esc(c.project)}</span><br>
-              <small>${esc(c.address)}</small><br>
-              <span class="popup-links"><a href="${l.apple}" target="_blank" rel="noopener">Apple Maps</a> · <a href="${l.google}" target="_blank" rel="noopener">Google Maps</a></span>
-            </div>`);
+          marker.bindPopup(() => pinPopupHtml(c.id));
+          marker.on('popupopen', () => { if (moving && moving.id === c.id) map.closePopup(); });
+          markersById[c.id] = marker;
           pts.push([c.lat, c.lng]);
         });
         if (offlineLabels) setOfflineLabels(true);
