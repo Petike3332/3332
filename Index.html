@@ -117,7 +117,44 @@
     .job-card-project { font-size: 14px; font-weight: 600; color: var(--primary-blue); margin-bottom: 8px; }
     .job-card-meta { font-size: 13px; color: var(--text-sub); display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; }
     .job-card-note { background: #f8f9fc; border-radius: 10px; padding: 10px; font-size: 13px; color: #3a3a3c; margin: 10px 0; font-style: italic; }
-    .job-card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .job-card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    /* Job sheet: screen preview + print */
+    #jobsheet { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #fff; z-index: 2800; overflow-y: auto; -webkit-overflow-scrolling: touch; display: none; }
+    #jobsheet.active { display: block; }
+    .js-bar { position: sticky; top: 0; display: flex; gap: 10px; padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top)); background: #f3f3f8; border-bottom: 1px solid #ddd; z-index: 2; }
+    .js-bar button { flex: 1; border: none; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    #jobsheet-body { max-width: 800px; margin: 0 auto; padding: 18px 16px 40px; color: #111; font-size: 14px; line-height: 1.4; -webkit-user-select: text; user-select: text; }
+    #jobsheet-body h1 { font-size: 26px; margin: 12px 0 2px; }
+    #jobsheet-body h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #1c1c1e; }
+    .js-head { width: 100%; border-collapse: collapse; border-bottom: 3px solid #007aff; }
+    .js-head td { padding: 0 0 8px; vertical-align: bottom; }
+    .js-brand { font-size: 18px; font-weight: 800; color: #007aff; }
+    .js-date { text-align: right; font-size: 12px; color: #666; }
+    .js-project { font-size: 17px; color: #007aff; font-weight: 600; margin-bottom: 4px; }
+    .js-table { width: 100%; border-collapse: collapse; }
+    .js-table th, .js-table td { text-align: left; padding: 6px 8px; border: 1px solid #d0d0d5; vertical-align: top; font-size: 13px; }
+    .js-table th { background: #f3f3f8; font-weight: 600; }
+    .js-info th { width: 32%; }
+    .js-table .n { text-align: right; white-space: nowrap; }
+    .js-photos { font-size: 0; }
+    .js-photos figure { display: inline-block; width: 48.5%; margin: 0 1% 12px 0; vertical-align: top; font-size: 12px; page-break-inside: avoid; }
+    .js-photos img { width: 100%; max-height: 9cm; object-fit: contain; background: #f4f4f4; border: 1px solid #d0d0d5; }
+    .js-photos figcaption { color: #666; padding-top: 3px; }
+    .js-none { color: #888; font-style: italic; font-size: 13px; }
+    .js-keep { page-break-inside: avoid; break-inside: avoid; }
+    .js-lines div { border-bottom: 1px solid #999; height: 30px; }
+    .js-sign { width: 100%; border-collapse: collapse; margin-top: 34px; }
+    .js-sign td { border-top: 1px solid #333; padding-top: 4px; font-size: 12px; color: #444; }
+    @media print {
+      @page { size: A4; margin: 14mm; }
+      html, body { height: auto !important; overflow: visible !important; background: #fff !important; display: block !important; }
+      body > *:not(#jobsheet) { display: none !important; }
+      #jobsheet { position: static !important; overflow: visible !important; display: block !important; }
+      .js-bar { display: none !important; }
+      #jobsheet-body { max-width: none; padding: 0; }
+      #jobsheet-body h2 { page-break-after: avoid; }
+      .js-table tr { page-break-inside: avoid; }
+    }
     .btn-action-sm { background: #f2f2f7; color: var(--text-main); border: none; border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
     .btn-action-danger { background: var(--danger-bg); color: var(--danger-txt); }
     .job-card-contact { display: flex; gap: 8px; margin-top: 10px; }
@@ -391,7 +428,7 @@
         <button style="width: 100%; background: #ffe5e5; color: #ff3b30; border: none; border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer;" onclick="resetDemoData()">
           Reset Demo Data & Customer Pins
         </button>
-        <div style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 14px;">Version 10 · map: OpenStreetMap</div>
+        <div style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 14px;">Version 11 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -530,6 +567,15 @@
         </div>
       </form>
     </div>
+  </div>
+
+  <!-- Job sheet (print view) -->
+  <div id="jobsheet">
+    <div class="js-bar">
+      <button type="button" style="background: #e5e5ea;" onclick="closeJobSheet()">Close</button>
+      <button type="button" style="background: #007aff; color: #fff;" onclick="printJobSheet()">🖨️ Print / Save PDF</button>
+    </div>
+    <div id="jobsheet-body"></div>
   </div>
 
   <!-- Photos sheet -->
@@ -760,6 +806,7 @@
             ${c.notes ? `<div class="job-card-note">${esc(c.notes)}</div>` : ''}
             ${contactRow(c)}
             <div class="job-card-actions">
+              <button class="btn-action-sm" data-id="${esc(c.id)}" onclick="openJobSheet(this.dataset.id)">🖨️ Sheet</button>
               <button class="btn-action-sm" data-id="${esc(c.id)}" onclick="openPhotoSheet(this.dataset.id)">📷 Photos<span class="pcount" data-job="${esc(c.id)}"></span></button>
               <button class="btn-action-sm" data-id="${esc(c.id)}" onclick="openCustomerModal(this.dataset.id)">✏️ Edit</button>
               <button class="btn-action-sm btn-action-danger" data-id="${esc(c.id)}" onclick="deleteCustomer(this.dataset.id)">🗑️</button>
@@ -1149,6 +1196,84 @@
       const r = parseFloat($('setting-rate').value);
       if (isFinite(r) && r >= 0) { settings.rate = r; saveAll(); renderClock(); }
     }
+    /* ================= Job sheet (printable) ================= */
+    let sheetURLs = [];
+    function longDay(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    async function openJobSheet(id) {
+      const c = findCustomer(id);
+      if (!c) return;
+      let recs = [];
+      try { recs = await photosFor(id); } catch (e) { /* photos unavailable here */ }
+      sheetURLs.forEach(u => URL.revokeObjectURL(u)); sheetURLs = [];
+      recs.sort((a, b) => a.ts - b.ts);
+
+      const jl = logs.filter(l => l.custId === id || (!l.custId && l.custName === c.name)).sort((a, b) => logTime(a) - logTime(b));
+      const totalH = jl.reduce((s, l) => s + (l.hours || 0), 0);
+      const totalE = jl.reduce((s, l) => s + (l.earnings || 0), 0);
+      const dash = '<span style="color:#999;">—</span>';
+      const multi = s => s ? esc(s).replace(/\n/g, '<br>') : dash;
+
+      const photos = kind => {
+        const mine = recs.filter(r => r.kind === kind);
+        if (!mine.length) return '<div class="js-none">No photos</div>';
+        return '<div class="js-photos">' + mine.map(r => {
+          const u = URL.createObjectURL(r.blob);
+          sheetURLs.push(u);
+          return `<figure><img src="${u}" alt="${kind} photo"><figcaption>${esc(fmtDate(r.ts))}</figcaption></figure>`;
+        }).join('') + '</div>';
+      };
+
+      const logTable = jl.length
+        ? `<table class="js-table"><tr><th>Date</th><th class="n">Hours</th><th class="n">Break</th><th class="n">Earned</th><th>Notes</th></tr>` +
+          jl.map(l => `<tr><td>${esc(logTime(l) ? fmtDate(logTime(l)) : l.date)}</td><td class="n">${(l.hours || 0).toFixed(2)}</td><td class="n">${l.breaks || 0} min</td><td class="n">${money(l.earnings)}</td><td>${esc(l.notes || '')}</td></tr>`).join('') +
+          `<tr><td><b>Total</b></td><td class="n"><b>${totalH.toFixed(2)}</b></td><td></td><td class="n"><b>${money(totalE)}</b></td><td></td></tr></table>`
+        : '<div class="js-none">No time logged for this job yet.</div>';
+
+      $('jobsheet-body').innerHTML = `
+        <table class="js-head"><tr><td><div class="js-brand">UpholsteryMate</div><div style="font-size:12px;color:#666;">Job sheet</div></td><td class="js-date">Printed ${esc(fmtDate(Date.now()))}</td></tr></table>
+        <h1>${esc(c.name)}</h1>
+        <div class="js-project">${esc(c.project)}</div>
+        <table class="js-table js-info">
+          <tr><th>Status</th><td><b>${esc(c.status)}</b></td></tr>
+          <tr><th>Phone</th><td>${c.phone ? esc(c.phone) : dash}</td></tr>
+          <tr><th>Address</th><td>${c.address ? esc(c.address) : dash}</td></tr>
+          <tr><th>Collection date</th><td>${c.collectDate ? esc(longDay(c.collectDate)) : dash}</td></tr>
+          <tr><th>Due / delivery date</th><td>${c.deliverDate ? esc(longDay(c.deliverDate)) : dash}</td></tr>
+          <tr><th>Notes / fabric specs</th><td>${multi(c.notes)}</td></tr>
+        </table>
+        <h2>Time &amp; earnings</h2>
+        ${logTable}
+        <h2>Before</h2>
+        ${photos('before')}
+        <h2>After</h2>
+        ${photos('after')}
+        <div class="js-keep">
+          <h2>Workshop notes</h2>
+          <div class="js-lines"><div></div><div></div><div></div></div>
+          <table class="js-sign"><tr><td style="width:65%;">Customer signature</td><td style="width:5%;border-top:none;"></td><td>Date</td></tr></table>
+        </div>`;
+
+      $('jobsheet').classList.add('active');
+      $('jobsheet').scrollTop = 0;
+    }
+
+    function closeJobSheet() {
+      $('jobsheet').classList.remove('active');
+      $('jobsheet-body').innerHTML = '';
+      sheetURLs.forEach(u => URL.revokeObjectURL(u)); sheetURLs = [];
+    }
+
+    async function printJobSheet() {
+      // Make sure the photos are ready before the print preview is taken
+      const imgs = Array.from(document.querySelectorAll('#jobsheet img'));
+      await Promise.all(imgs.map(i => (i.decode ? i.decode().catch(() => {}) : Promise.resolve())));
+      try { window.print(); } catch (e) { toast('Printing isn\'t available here. Open the app in Safari and try again.'); }
+    }
+
     /* ================= Files: share sheet or download ================= */
     async function shareOrDownload(name, type, content, title) {
       try {
