@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>UpholsteryMate</title>
+
+  <!-- Leaflet CSS (falls back to a second CDN if the first is blocked) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css'" />
+
+  <style>
+    :root {
+      --bg-color: #f3f3f8;
+      --card-bg: #ffffff;
+      --primary-blue: #007aff;
+      --primary-green: #34c759;
+      --text-main: #1c1c1e;
+      --text-sub: #8e8e93;
+      --border-color: #e5e5ea;
+      --danger-bg: #ffe5e5;
+      --danger-txt: #ff3b30;
+      --status-new-bg: #e5f1ff;
+      --status-new-txt: #007aff;
+      --status-prog-bg: #e6f9ed;
+      --status-prog-txt: #24b24b;
+      --status-comp-bg: #eef0f4;
+      --status-comp-txt: #636366;
+      --nav-height: 84px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      width: 100%;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    input, textarea, select { -webkit-user-select: text; user-select: text; }
+
+    /* Header */
+    header {
+      background-color: #ffffff;
+      padding: 12px 16px;
+      padding-top: calc(12px + env(safe-area-inset-top));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .app-icon { width: 42px; height: 42px; background: #007aff; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,122,255,0.3); }
+    .app-icon svg { width: 24px; height: 24px; fill: #ffffff; }
+    .app-titles h1 { font-size: 18px; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; }
+    .app-titles span { font-size: 13px; color: var(--text-sub); }
+    .currency-pill { background: #e8f2ff; color: #007aff; border: 1px solid #c2deff; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 600; }
+
+    /* Tabs */
+    .app-content { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+    .tab-pane { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow-y: auto; padding: 16px 16px 36px; display: none; -webkit-overflow-scrolling: touch; }
+    .tab-pane.active { display: block; }
+
+    /* Cards */
+    .card { background: var(--card-bg); border-radius: 22px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+    .card-header-title { font-size: 20px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; letter-spacing: -0.4px; }
+    .card-subtitle { font-size: 13px; color: var(--text-sub); margin-bottom: 16px; line-height: 1.4; }
+    .card-section-label { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .empty { text-align: center; color: var(--text-sub); font-size: 14px; padding: 20px 8px; line-height: 1.5; }
+
+    /* Timer */
+    .stopped-pill { display: inline-block; background: #e5e5ea; color: #636366; border-radius: 12px; padding: 4px 12px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+    .stopped-pill.running { background: #e6f9ed; color: #24b24b; }
+    .stopped-pill.onbreak { background: #fff3e0; color: #c26a00; }
+    .digital-clock { font-size: 50px; font-weight: 800; letter-spacing: 2px; color: #0d121c; text-align: center; margin: 8px 0 20px 0; font-variant-numeric: tabular-nums; }
+
+    .ios-select, .ios-input { width: 100%; background: #f8f9fc; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; font-size: 16px; color: var(--text-main); outline: none; appearance: none; -webkit-appearance: none; }
+    .ios-select:disabled { opacity: 0.6; }
+    .select-wrapper { position: relative; }
+    .select-wrapper::after { content: '▲\A▼'; white-space: pre; font-size: 8px; line-height: 8px; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-sub); pointer-events: none; }
+
+    .metric-row { display: flex; justify-content: space-around; margin: 18px 0; text-align: center; }
+    .metric-item .val { font-size: 18px; font-weight: 700; margin-top: 4px; }
+    .metric-item .val.green { color: var(--primary-green); }
+    .metric-item .val.orange { color: #ff9500; }
+
+    .btn-green-start { width: 100%; background: var(--primary-green); color: #ffffff; border: none; border-radius: 16px; padding: 16px; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(52,199,89,0.3); }
+    .btn-green-start.stop { background: #ff3b30; box-shadow: 0 4px 12px rgba(255,59,48,0.3); }
+    .btn-break { display: none; width: 100%; margin-top: 10px; background: #fff3e0; color: #c26a00; border: none; border-radius: 16px; padding: 14px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    .btn-blue { background: var(--primary-blue); color: #ffffff; border: none; border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-blue:disabled { opacity: 0.5; }
+
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .summary-box { background: #f8f9fc; border-radius: 16px; padding: 14px; }
+    .summary-box .lbl { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+    .summary-box .num { font-size: 20px; font-weight: 800; }
+
+    /* Customers */
+    .job-card { background: #ffffff; border-radius: 18px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+    .job-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+    .job-card-top h3 { font-size: 17px; font-weight: 700; color: var(--text-main); }
+    .job-card-project { font-size: 14px; font-weight: 600; color: var(--primary-blue); margin-bottom: 8px; }
+    .job-card-meta { font-size: 13px; color: var(--text-sub); display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; }
+    .job-card-note { background: #f8f9fc; border-radius: 10px; padding: 10px; font-size: 13px; color: #3a3a3c; margin: 10px 0; font-style: italic; }
+    .job-card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .btn-action-sm { background: #f2f2f7; color: var(--text-main); border: none; border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
+    .btn-action-danger { background: var(--danger-bg); color: var(--danger-txt); }
+    .status-pill { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .status-pill.new { background: var(--status-new-bg); color: var(--status-new-txt); }
+    .status-pill.progress { background: var(--status-prog-bg); color: var(--status-prog-txt); }
+    .status-pill.completed { background: var(--status-comp-bg); color: var(--status-comp-txt); }
+
+    /* Map */
+    #tab-map { padding: 0; overflow: hidden; }
+    #map-frame { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+    .pin-wrap { background: none; border: none; }
+    .pin { width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+    .pin.new { background: #007aff; }
+    .pin.progress { background: #34c759; }
+    .pin.completed { background: #8e8e93; }
+    .map-banner { position: absolute; left: 10px; right: 10px; top: 10px; z-index: 1000; background: #fff3e0; color: #7a4300; border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.4; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; }
+    .map-banner a { color: #007aff; font-weight: 600; }
+    .map-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 1000; background: rgba(255,255,255,0.96); padding: 12px 16px; border-radius: 14px; font-size: 14px; color: #666; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; max-width: 80%; }
+    .map-fallback { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 900; background: var(--bg-color); overflow-y: auto; padding: 16px; display: none; }
+    .popup-links a { color: #007aff; font-weight: 600; font-size: 12px; text-decoration: none; }
+
+    /* Bottom nav */
+    nav.ios-nav { height: var(--nav-height); background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: flex-start; padding-top: 8px; position: relative; z-index: 100; flex-shrink: 0; }
+    .nav-btn { display: flex; flex-direction: column; align-items: center; color: var(--text-sub); font-size: 10px; font-weight: 500; width: 16%; cursor: pointer; }
+    .nav-btn svg { width: 22px; height: 22px; margin-bottom: 2px; fill: currentColor; }
+    .nav-btn.active { color: var(--primary-blue); }
+
+    /* Modal */
+    .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 2000; display: none; align-items: flex-end; justify-content: center; }
+    .modal-backdrop.active { display: flex; }
+    .modal-sheet { background: #ffffff; border-top-left-radius: 24px; border-top-right-radius: 24px; width: 100%; max-width: 540px; max-height: 92vh; max-height: 92dvh; overflow-y: auto; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 30px rgba(0,0,0,0.15); animation: slideUp 0.25s ease-out; }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .modal-header h2 { font-size: 20px; font-weight: 700; }
+    .modal-close { background: none; border: none; font-size: 26px; color: var(--text-sub); cursor: pointer; }
+    .uk-finder-box { background: #f8f9fe; border: 1px dashed #007aff; border-radius: 14px; padding: 14px; margin: 12px 0; }
+    .finder-results-list { background: #ffffff; border: 1px solid var(--border-color); border-radius: 12px; margin-top: 10px; max-height: 200px; overflow-y: auto; display: none; }
+    .finder-result-item { padding: 10px 12px; border-bottom: 1px solid var(--border-color); font-size: 13px; cursor: pointer; }
+    .finder-result-item:last-child { border-bottom: none; }
+    .finder-result-item:active { background: #f2f7ff; }
+
+    /* Time log rows & detail sheet */
+    .log-row { background: #f8f9fc; border-radius: 16px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; }
+    .log-row:active { background: #eceef4; }
+    input[type="date"].ios-input { min-height: 46px; display: block; }
+    .log-earn { background: #eef5ff; font-weight: 700; color: var(--primary-green); min-height: 46px; }
+
+    /* Toast */
+    #toast { position: fixed; left: 50%; bottom: calc(var(--nav-height) + 16px); transform: translateX(-50%); background: rgba(28,28,30,0.92); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 3000; max-width: 88%; text-align: center; }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <div class="app-icon">
+        <svg viewBox="0 0 24 24"><path d="M20 10V7c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v3c-1.1 0-2 .9-2 2v5c0 1.1.9 2 2 2h1c0 .55.45 1 1 1s1-.45 1-1h10c0 .55.45 1 1 1s1-.45 1-1h1c1.1 0 2-.9 2-2v-5c0-1.1-.9-2-2-2zm-14-3h12v3H6V7zm14 10H4v-5h16v5z"/></svg>
+      </div>
+      <div class="app-titles">
+        <h1>UpholsteryMate</h1>
+        <span id="header-sub">Ready</span>
+      </div>
+    </div>
+    <div class="currency-pill" id="currency-pill">£ (GBP)</div>
+  </header>
+
+  <div class="app-content">
+
+    <!-- Tab 1: Timer -->
+    <div id="tab-timer" class="tab-pane active">
+      <div class="card" style="text-align: center;">
+        <span class="stopped-pill" id="timer-status-pill">• Stopped</span>
+
+        <div class="digital-clock" id="timer-clock">00:00:00</div>
+
+        <div style="text-align: left; margin-bottom: 16px;">
+          <div class="card-section-label">Assign to customer/job</div>
+          <div class="select-wrapper">
+            <select class="ios-select" id="timer-job-select">
+              <option value="">-- General / Unassigned --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="metric-row">
+          <div class="metric-item">
+            <div style="font-size: 12px; color: var(--text-sub);">Est. Earnings</div>
+            <div class="val green" id="timer-est-earnings">£0.00</div>
+          </div>
+          <div style="width: 1px; background: var(--border-color);"></div>
+          <div class="metric-item">
+            <div style="font-size: 12px; color: var(--text-sub);">Breaks Taken</div>
+            <div class="val orange" id="timer-breaks">0 mins</div>
+          </div>
+        </div>
+
+        <button class="btn-green-start" id="btn-timer-main" onclick="toggleTimer()">
+          <span id="timer-btn-icon">►</span> <span id="timer-btn-text">Start</span>
+        </button>
+        <button class="btn-break" id="btn-timer-break" onclick="toggleBreak()">☕ Take a Break</button>
+      </div>
+
+      <div class="card">
+        <div class="card-section-label">Today's quick summary</div>
+        <div class="summary-grid">
+          <div class="summary-box">
+            <div class="lbl">Total Hours Today</div>
+            <div class="num" id="summary-today-hours">0.0 hrs</div>
+          </div>
+          <div class="summary-box">
+            <div class="lbl">Total Revenue</div>
+            <div class="num" style="color: var(--primary-green);" id="summary-today-rev">£0.00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Overview -->
+    <div id="tab-overview" class="tab-pane">
+      <div class="card">
+        <div class="card-header-title">Time Logs & Summary</div>
+        <div class="card-subtitle">Tap a log to view details, edit or delete it.</div>
+        <div id="overview-logs-list"></div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Customers -->
+    <div id="tab-customers" class="tab-pane">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 12px;">
+        <div>
+          <div class="card-header-title" style="margin-bottom:2px;">Customers & Projects</div>
+          <div class="card-subtitle" style="margin-bottom:0;">Manage client directory and job statuses.</div>
+        </div>
+        <button class="btn-blue" style="white-space: nowrap;" onclick="openCustomerModal()">+ New Job</button>
+      </div>
+
+      <div style="position: relative; margin-bottom: 14px;">
+        <input type="text" class="ios-input" id="customer-search-input" placeholder="Search customer, project or address..." oninput="renderCustomerList()" style="padding-left: 38px;">
+        <svg style="position: absolute; left: 12px; top: 13px; width: 18px; height: 18px; fill: var(--text-sub);" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      </div>
+
+      <div id="customer-cards-container"></div>
+    </div>
+
+    <!-- Tab 4: Job Map -->
+    <div id="tab-map" class="tab-pane">
+      <div id="map-frame"></div>
+      <div class="map-banner" id="map-banner"></div>
+      <div class="map-empty" id="map-empty">No jobs on the map yet.<br>Add a job with an address in Customers.</div>
+      <div class="map-fallback" id="map-fallback"></div>
+    </div>
+
+    <!-- Tab 5: Manage -->
+    <div id="tab-manage" class="tab-pane">
+      <div class="card">
+        <div class="card-header-title">Shift Adjustment</div>
+        <div class="card-subtitle">Manually add completed shift time logs.</div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="card-section-label">Select customer</div>
+          <div class="select-wrapper">
+            <select class="ios-select" id="manage-cust-select"></select>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="card-section-label">Hours worked</div>
+          <input type="number" class="ios-input" id="manage-hours" placeholder="e.g. 3.5" step="0.1" min="0" inputmode="decimal">
+        </div>
+
+        <button class="btn-blue" style="width: 100%; justify-content: center; padding: 14px;" onclick="addManualLog()">Save Log Entry</button>
+      </div>
+    </div>
+
+    <!-- Tab 6: Settings -->
+    <div id="tab-settings" class="tab-pane">
+      <div class="card">
+        <div class="card-header-title">Application Settings</div>
+
+        <div style="margin-top: 16px; margin-bottom: 16px;">
+          <div class="card-section-label">Currency symbol</div>
+          <div class="select-wrapper">
+            <select class="ios-select" id="setting-currency" onchange="onCurrencyChange()">
+              <option value="£">£ - British Pound (GBP)</option>
+              <option value="$">$ - US Dollar (USD)</option>
+              <option value="€">€ - Euro (EUR)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="card-section-label">Default base hourly rate</div>
+          <div style="position: relative;">
+            <span id="rate-symbol" style="position: absolute; left: 14px; top: 12px; font-weight: 700; color: var(--text-sub);">£</span>
+            <input type="number" class="ios-input" id="setting-rate" value="35" min="0" step="0.5" inputmode="decimal" oninput="onRateChange()" style="padding-left: 32px;">
+          </div>
+        </div>
+
+        <button style="width: 100%; background: #ffe5e5; color: #ff3b30; border: none; border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer;" onclick="resetDemoData()">
+          Reset Demo Data & Customer Pins
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Customer Modal -->
+  <div class="modal-backdrop" id="customer-modal" onclick="if(event.target===this)closeCustomerModal()">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h2 id="modal-title">New Customer Job</h2>
+        <button class="modal-close" type="button" onclick="closeCustomerModal()" aria-label="Close">&times;</button>
+      </div>
+
+      <form onsubmit="handleCustomerSave(event)">
+        <input type="hidden" id="cust-id">
+        <input type="hidden" id="cust-lat">
+        <input type="hidden" id="cust-lng">
+
+        <div style="margin-bottom: 12px;">
+          <div class="card-section-label">Client name *</div>
+          <input type="text" class="ios-input" id="cust-name" required placeholder="Eleanor Vance">
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="card-section-label">Project / item description *</div>
+          <input type="text" class="ios-input" id="cust-project" required placeholder="Victorian Velvet Armchair">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <div class="card-section-label">Status</div>
+            <div class="select-wrapper">
+              <select class="ios-select" id="cust-status">
+                <option value="New">New</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div class="card-section-label">Phone number</div>
+            <input type="tel" class="ios-input" id="cust-phone" placeholder="07700 900123">
+          </div>
+        </div>
+
+        <div class="uk-finder-box">
+          <div class="card-section-label" style="color: #007aff;">UK address & postcode finder</div>
+          <div style="display: flex; gap: 8px; margin-top: 6px;">
+            <input type="text" class="ios-input" id="cust-address-input" placeholder="3 firs close hazlemere">
+            <button type="button" class="btn-blue" id="find-btn" style="white-space: nowrap;" onclick="performAddressSearch()">🔍 Find</button>
+          </div>
+          <div id="finder-results" class="finder-results-list"></div>
+          <div id="finder-status" style="font-size: 12px; margin-top: 6px; font-weight: 600;"></div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="card-section-label">Saved location</div>
+          <input type="text" class="ios-input" id="cust-formatted-addr" readonly style="background: #eef5ff; color: #333;" placeholder="Hazlemere, High Wycombe, HP15 7JA, United Kingdom">
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <div class="card-section-label">Notes / fabric specs</div>
+          <textarea class="ios-input" id="cust-notes" rows="2" placeholder="Deep buttoning with gold upholstery studs."></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button type="button" class="ios-input" style="background: #e5e5ea; text-align: center; font-weight: 600;" onclick="closeCustomerModal()">Cancel</button>
+          <button type="submit" class="btn-blue" id="cust-save-btn" style="justify-content: center; font-weight: 700;">Save Job</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Time Log Details Modal -->
+  <div class="modal-backdrop" id="log-modal" onclick="if(event.target===this)closeLogModal()">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h2>Time Log Details</h2>
+        <button class="modal-close" type="button" onclick="closeLogModal()" aria-label="Close">&times;</button>
+      </div>
+
+      <form onsubmit="saveLog(event)">
+        <div id="log-info" style="font-size: 12px; color: var(--text-sub); margin-bottom: 14px;"></div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="card-section-label">Customer / job</div>
+          <div class="select-wrapper"><select class="ios-select" id="log-cust"></select></div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="card-section-label">Date</div>
+          <input type="date" class="ios-input" id="log-date" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <div class="card-section-label">Hours worked</div>
+            <input type="number" class="ios-input" id="log-hours" step="0.01" min="0" inputmode="decimal" oninput="updateLogPreview()" required>
+          </div>
+          <div>
+            <div class="card-section-label">Break (minutes)</div>
+            <input type="number" class="ios-input" id="log-break" step="1" min="0" inputmode="numeric">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <div class="card-section-label">Hourly rate</div>
+            <input type="number" class="ios-input" id="log-rate" step="0.5" min="0" inputmode="decimal" oninput="updateLogPreview()" required>
+          </div>
+          <div>
+            <div class="card-section-label">Earnings</div>
+            <div class="ios-input log-earn" id="log-earn">£0.00</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <div class="card-section-label">Notes</div>
+          <textarea class="ios-input" id="log-notes" rows="2" placeholder="e.g. Stripped old fabric, re-sprung seat"></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button type="button" class="ios-input" style="background: var(--danger-bg); color: var(--danger-txt); text-align: center; font-weight: 600;" onclick="deleteLog(editingLogId)">Delete</button>
+          <button type="submit" class="btn-blue" style="justify-content: center; font-weight: 700;">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- In-page confirm dialog (native confirm() is blocked in some viewers) -->
+  <div class="modal-backdrop" id="confirm-modal" style="z-index: 2500;" onclick="if(event.target===this)resolveConfirm(false)">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h2 id="confirm-title">Are you sure?</h2>
+      </div>
+      <div id="confirm-msg" style="font-size: 15px; color: #3a3a3c; line-height: 1.4; margin-bottom: 18px;"></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <button type="button" class="ios-input" style="background: #e5e5ea; text-align: center; font-weight: 600;" onclick="resolveConfirm(false)">Cancel</button>
+        <button type="button" class="btn-blue" id="confirm-ok" style="justify-content: center; font-weight: 700; background: #ff3b30;" onclick="resolveConfirm(true)">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <nav class="ios-nav">
+    <div class="nav-btn active" onclick="switchTab('tab-timer')">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>
+      <span>Timer</span>
+    </div>
+    <div class="nav-btn" onclick="switchTab('tab-overview')">
+      <svg viewBox="0 0 24 24"><path d="M11 2v20c-5.07-.5-9-4.79-9-10s3.93-9.5 9-10zm2 0v8.99h9c-.53-4.82-4.18-8.47-9-8.99zm0 11.01V22c4.82-.52 8.47-4.17 9-8.99h-9z"/></svg>
+      <span>Overview</span>
+    </div>
+    <div class="nav-btn" onclick="switchTab('tab-customers')">
+      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span>Customers</span>
+    </div>
+
+    <div class="nav-btn" onclick="switchTab('tab-map')">
+      <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+      <span>Job Map</span>
+    </div>
+    <div class="nav-btn" onclick="switchTab('tab-manage')">
+      <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      <span>Manage</span>
+    </div>
+    <div class="nav-btn" onclick="switchTab('tab-settings')">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      <span>Settings</span>
+    </div>
+  </nav>
+
+  <!-- Leaflet JS (falls back to a second CDN if the first is blocked) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';document.head.appendChild(s);"></script>
+
+  <script>
+    /* ================= Helpers & storage ================= */
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const clone = o => JSON.parse(JSON.stringify(o));
+    function load(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; } catch (e) { return fallback; }
+    }
+    function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* storage unavailable */ } }
+    let toastT;
+    function toast(msg) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastT);
+      toastT = setTimeout(() => el.classList.remove('show'), 2800);
+    }
+    const CURRENCY_CODES = { '£': 'GBP', '$': 'USD', '€': 'EUR' };
+    const fmtDate = ts => new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const money = n => settings.currency + (Number(n) || 0).toFixed(2);
+
+    /* ================= Data ================= */
+    const defaultCustomers = [
+      { id: '1', name: 'Eleanor Vance', project: 'Victorian Velvet Armchair', status: 'In Progress', phone: '07700 900123', address: 'Hazlemere, High Wycombe, HP15 7JA, United Kingdom', lat: 51.6521, lng: -0.7103, notes: 'Deep buttoning with gold upholstery studs.' },
+      { id: '2', name: 'Kensington Club House', project: '6x Leather Dining Chairs', status: 'New', phone: '020 7946 0912', address: 'Kensington High St, London W8 6ED, United Kingdom', lat: 51.4988, lng: -0.1991, notes: 'Full grain dark brown leather replacement.' },
+      { id: '3', name: 'The Crown Hotel', project: 'Bespoke Booth Seating', status: 'Completed', phone: '01494 500112', address: 'High Wycombe HP11 2AZ, United Kingdom', lat: 51.6287, lng: -0.7482, notes: 'Commercial stain resistant fabric.' }
+    ];
+
+    let customers = load('um_customers', clone(defaultCustomers));
+    let logs = load('um_logs', []);
+    let settings = Object.assign({ currency: '£', rate: 35 }, load('um_settings', {}));
+    let timer = Object.assign({ running: false, onBreak: false, segStart: null, workedMs: 0, breakMs: 0, jobId: '' }, load('um_timer', {}));
+    let tickHandle = null;
+
+    const saveAll = () => { save('um_customers', customers); save('um_logs', logs); save('um_settings', settings); };
+    const saveTimer = () => save('um_timer', timer);
+
+    /* ================= Navigation ================= */
+    const TABS = ['tab-timer', 'tab-overview', 'tab-customers', 'tab-map', 'tab-manage', 'tab-settings'];
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      $(tabId).classList.add('active');
+      const i = TABS.indexOf(tabId);
+      if (i !== -1) document.querySelectorAll('.nav-btn')[i].classList.add('active');
+      // The map is created only once its tab is visible, so it always gets a real size
+      if (tabId === 'tab-map') setTimeout(showMap, 60);
+    }
+
+    /* ================= Timer ================= */
+    const workedNow = () => timer.workedMs + (timer.running && !timer.onBreak ? Date.now() - timer.segStart : 0);
+    const breakNow = () => timer.breakMs + (timer.running && timer.onBreak ? Date.now() - timer.segStart : 0);
+    const findCustomer = id => customers.find(c => c.id === id);
+
+    function toggleTimer() {
+      if (!timer.running) {
+        timer = { running: true, onBreak: false, segStart: Date.now(), workedMs: 0, breakMs: 0, jobId: $('timer-job-select').value };
+      } else {
+        const worked = workedNow(), brk = breakNow();
+        if (worked >= 1000) {
+          const hours = worked / 3600000;
+          const c = findCustomer(timer.jobId);
+          const now = Date.now();
+          logs.unshift({
+            id: String(now), custId: timer.jobId || '', custName: c ? c.name : 'General / Unassigned',
+            ts: now, date: fmtDate(now), hours: Math.round(hours * 100) / 100,
+            breaks: Math.round(brk / 60000), earnings: Math.round(hours * settings.rate * 100) / 100
+          });
+          toast('Time log saved');
+        }
+        timer = { running: false, onBreak: false, segStart: null, workedMs: 0, breakMs: 0, jobId: '' };
+        saveAll();
+      }
+      saveTimer();
+      renderTimer();
+      renderOverviewLogs();
+    }
+
+    function toggleBreak() {
+      if (!timer.running) return;
+      const now = Date.now();
+      if (!timer.onBreak) { timer.workedMs += now - timer.segStart; timer.onBreak = true; }
+      else { timer.breakMs += now - timer.segStart; timer.onBreak = false; }
+      timer.segStart = now;
+      saveTimer();
+      renderTimer();
+    }
+
+    function renderClock() {
+      const secs = Math.floor(workedNow() / 1000);
+      $('timer-clock').textContent = [Math.floor(secs / 3600), Math.floor((secs % 3600) / 60), secs % 60].map(n => String(n).padStart(2, '0')).join(':');
+      $('timer-est-earnings').textContent = money((secs / 3600) * settings.rate);
+      $('timer-breaks').textContent = Math.floor(breakNow() / 60000) + ' mins';
+      renderSummary();
+    }
+
+    function renderTimer() {
+      const pill = $('timer-status-pill');
+      $('btn-timer-main').classList.toggle('stop', timer.running);
+      $('timer-btn-text').textContent = timer.running ? 'Stop' : 'Start';
+      $('timer-btn-icon').textContent = timer.running ? '■' : '►';
+      pill.className = 'stopped-pill' + (timer.running ? (timer.onBreak ? ' onbreak' : ' running') : '');
+      pill.textContent = !timer.running ? '• Stopped' : timer.onBreak ? '• On break' : '• Running';
+      const brk = $('btn-timer-break');
+      brk.style.display = timer.running ? 'block' : 'none';
+      brk.textContent = timer.onBreak ? '▶ End Break' : '☕ Take a Break';
+      $('timer-job-select').disabled = timer.running;
+      if (timer.running) $('timer-job-select').value = timer.jobId;
+      const c = findCustomer(timer.jobId);
+      $('header-sub').textContent = !timer.running ? 'Ready' : timer.onBreak ? 'On break' : (c ? 'Working: ' + c.name : 'Timer running');
+      clearInterval(tickHandle);
+      if (timer.running) tickHandle = setInterval(renderClock, 500);
+      renderClock();
+    }
+
+    /* ================= Rendering ================= */
+    function renderCustomerDropdowns() {
+      const s1 = $('timer-job-select'), s2 = $('manage-cust-select');
+      const keep = timer.running ? timer.jobId : s1.value;
+      const opts = customers.map(c => `<option value="${esc(c.id)}">${esc(c.name)} - ${esc(c.project)}</option>`).join('');
+      s1.innerHTML = '<option value="">-- General / Unassigned --</option>' + opts;
+      s1.value = customers.some(c => c.id === keep) ? keep : '';
+      s2.innerHTML = customers.length ? opts : '<option value="">No customers yet</option>';
+    }
+
+    function renderCustomerList() {
+      const container = $('customer-cards-container');
+      const q = ($('customer-search-input').value || '').toLowerCase().trim();
+      const list = customers.filter(c => !q || [c.name, c.project, c.address].some(v => (v || '').toLowerCase().includes(q)));
+
+      if (!list.length) {
+        container.innerHTML = `<div class="empty">${customers.length ? 'No matches found.' : 'No jobs yet. Tap + New Job to add your first customer.'}</div>`;
+        return;
+      }
+      container.innerHTML = list.map(c => {
+        const pill = c.status === 'New' ? 'new' : c.status === 'In Progress' ? 'progress' : 'completed';
+        return `
+          <div class="job-card">
+            <div class="job-card-top">
+              <h3>${esc(c.name)}</h3>
+              <span class="status-pill ${pill}">${esc(c.status)}</span>
+            </div>
+            <div class="job-card-project">${esc(c.project)}</div>
+            <div class="job-card-meta"><span>📍</span><span>${esc(c.address) || 'No address set'}${c.address && !(c.lat && c.lng) ? ' (not on map)' : ''}</span></div>
+            <div class="job-card-meta"><span>📞</span><span>${esc(c.phone) || 'N/A'}</span></div>
+            ${c.notes ? `<div class="job-card-note">${esc(c.notes)}</div>` : ''}
+            <div class="job-card-actions">
+              ${c.phone ? `<a class="btn-action-sm" href="tel:${esc(c.phone.replace(/[^0-9+]/g, ''))}">📞 Call</a>` : ''}
+              <button class="btn-action-sm" data-id="${esc(c.id)}" onclick="openCustomerModal(this.dataset.id)">✏️ Edit</button>
+              <button class="btn-action-sm btn-action-danger" data-id="${esc(c.id)}" onclick="deleteCustomer(this.dataset.id)">🗑️</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function isToday(l) { return l.ts ? new Date(l.ts).toDateString() === new Date().toDateString() : l.date === fmtDate(Date.now()); }
+
+    function renderSummary() {
+      const today = logs.filter(isToday);
+      const hours = today.reduce((s, l) => s + (l.hours || 0), 0) + (timer.running ? workedNow() / 3600000 : 0);
+      const rev = today.reduce((s, l) => s + (l.earnings || 0), 0) + (timer.running ? (workedNow() / 3600000) * settings.rate : 0);
+      $('summary-today-hours').textContent = hours.toFixed(1) + ' hrs';
+      $('summary-today-rev').textContent = money(rev);
+    }
+
+    function renderOverviewLogs() {
+      const box = $('overview-logs-list');
+      if (!logs.length) {
+        box.innerHTML = '<div class="empty">No time logged yet. Start the timer, or add a shift in Manage.</div>';
+      } else {
+        const totalH = logs.reduce((s, l) => s + (l.hours || 0), 0);
+        const totalE = logs.reduce((s, l) => s + (l.earnings || 0), 0);
+        box.innerHTML = `<div class="card-section-label" style="margin-bottom:10px;">All time: ${totalH.toFixed(2)} hrs · ${money(totalE)}</div>` +
+          logs.map(l => `
+          <div class="log-row" data-id="${esc(l.id)}" onclick="openLogModal(this.dataset.id)">
+            <div style="min-width:0;">
+              <div style="font-size:15px;font-weight:700;">${esc(l.custName)}</div>
+              <div style="font-size:12px;color:var(--text-sub);margin-top:2px;">${esc(l.date)} • ${(l.hours || 0).toFixed(2)} hrs logged (${l.breaks || 0}m break)${l.notes ? ' • 📝' : ''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="font-size:16px;font-weight:700;color:var(--primary-green);">${money(l.earnings)}</div>
+              <span style="color:#c7c7cc;font-size:22px;line-height:1;">›</span>
+            </div>
+          </div>`).join('');
+      }
+      renderSummary();
+    }
+
+    /* ---- In-page confirm dialog ---- */
+    let confirmResolve = null;
+    function askConfirm(message, okLabel, title) {
+      return new Promise(resolve => {
+        if (confirmResolve) confirmResolve(false);
+        confirmResolve = resolve;
+        $('confirm-title').textContent = title || 'Are you sure?';
+        $('confirm-msg').textContent = message;
+        $('confirm-ok').textContent = okLabel || 'Delete';
+        $('confirm-modal').classList.add('active');
+      });
+    }
+    function resolveConfirm(answer) {
+      $('confirm-modal').classList.remove('active');
+      const r = confirmResolve; confirmResolve = null;
+      if (r) r(answer);
+    }
+
+    /* ---- Time log details / edit ---- */
+    let editingLogId = null, logEditOrig = null;
+    const pad2 = n => String(n).padStart(2, '0');
+    const isoDate = ts => { const d = new Date(ts); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+
+    // Which option in the customer picker matches this log
+    function logCustomerKey(l) {
+      if (l.custId && findCustomer(l.custId)) return l.custId;
+      const general = !l.custName || l.custName === 'General / Unassigned';
+      if (!l.custId && !general) { const c = customers.find(x => x.name === l.custName); if (c) return c.id; }
+      return general ? '' : '__keep';
+    }
+
+    function openLogModal(id) {
+      const l = logs.find(x => x.id === id);
+      if (!l) return;
+      editingLogId = id;
+      const key = logCustomerKey(l);
+      $('log-cust').innerHTML = '<option value="">General / Unassigned</option>' +
+        customers.map(c => `<option value="${esc(c.id)}">${esc(c.name)} - ${esc(c.project)}</option>`).join('') +
+        (key === '__keep' ? `<option value="__keep">${esc(l.custName)} (removed)</option>` : '');
+      $('log-cust').value = key;
+      $('log-date').value = isoDate(l.ts || Date.now());
+      $('log-hours').value = l.hours || 0;
+      $('log-break').value = l.breaks || 0;
+      $('log-rate').value = l.hours > 0 ? Math.round((l.earnings / l.hours) * 100) / 100 : settings.rate;
+      $('log-notes').value = l.notes || '';
+      $('log-info').textContent = l.ts
+        ? 'Logged ' + new Date(l.ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : 'Logged ' + l.date;
+      logEditOrig = { hours: parseFloat($('log-hours').value), rate: parseFloat($('log-rate').value) };
+      updateLogPreview();
+      $('log-modal').classList.add('active');
+    }
+    function closeLogModal() { $('log-modal').classList.remove('active'); editingLogId = null; }
+
+    function updateLogPreview() {
+      const h = parseFloat($('log-hours').value), r = parseFloat($('log-rate').value);
+      $('log-earn').textContent = money(isFinite(h) && isFinite(r) ? h * r : 0);
+    }
+
+    function saveLog(e) {
+      e.preventDefault();
+      const l = logs.find(x => x.id === editingLogId);
+      if (!l) { closeLogModal(); return; }
+      const hours = parseFloat($('log-hours').value);
+      const brk = $('log-break').value === '' ? 0 : parseFloat($('log-break').value);
+      const rate = parseFloat($('log-rate').value);
+      const dateVal = $('log-date').value;
+      if (!(hours > 0)) { toast('Enter the hours worked'); return; }
+      if (!(brk >= 0)) { toast('Break minutes can\'t be negative'); return; }
+      if (!(rate >= 0)) { toast('Enter an hourly rate'); return; }
+      if (!dateVal) { toast('Choose a date'); return; }
+
+      const key = $('log-cust').value;
+      if (key === '') { l.custId = ''; l.custName = 'General / Unassigned'; }
+      else if (key !== '__keep') { const c = findCustomer(key); if (c) { l.custId = c.id; l.custName = c.name; } }
+
+      // Change the day but keep the original time of day
+      const old = new Date(l.ts || Date.now());
+      const [y, m, d] = dateVal.split('-').map(Number);
+      l.ts = new Date(y, m - 1, d, old.getHours(), old.getMinutes(), old.getSeconds()).getTime();
+      l.date = fmtDate(l.ts);
+      l.hours = Math.round(hours * 100) / 100;
+      l.breaks = Math.round(brk);
+      const unchanged = logEditOrig && hours === logEditOrig.hours && rate === logEditOrig.rate;
+      if (!unchanged) l.earnings = Math.round(hours * rate * 100) / 100;
+      l.notes = $('log-notes').value.trim();
+
+      saveAll();
+      renderOverviewLogs();
+      closeLogModal();
+      toast('Log updated');
+    }
+
+    async function deleteLog(id) {
+      if (!id) return;
+      if (!(await askConfirm('Delete this time log? This can\'t be undone.', 'Delete', 'Delete time log'))) return;
+      logs = logs.filter(l => l.id !== id);
+      saveAll();
+      renderOverviewLogs();
+      closeLogModal();
+      toast('Log deleted');
+    }
+
+    /* ================= Customer modal ================= */
+    function openCustomerModal(id) {
+      ['cust-id', 'cust-name', 'cust-project', 'cust-phone', 'cust-address-input', 'cust-formatted-addr', 'cust-lat', 'cust-lng', 'cust-notes'].forEach(f => $(f).value = '');
+      $('cust-status').value = 'New';
+      $('finder-results').style.display = 'none';
+      $('finder-status').textContent = '';
+      $('modal-title').textContent = 'New Customer Job';
+
+      const c = id ? findCustomer(id) : null;
+      if (c) {
+        $('modal-title').textContent = 'Edit Customer Job';
+        $('cust-id').value = c.id;
+        $('cust-name').value = c.name;
+        $('cust-project').value = c.project;
+        $('cust-status').value = c.status;
+        $('cust-phone').value = c.phone || '';
+        $('cust-address-input').value = c.address || '';
+        $('cust-formatted-addr').value = c.address || '';
+        $('cust-lat').value = c.lat || '';
+        $('cust-lng').value = c.lng || '';
+        $('cust-notes').value = c.notes || '';
+      }
+      $('customer-modal').classList.add('active');
+    }
+    function closeCustomerModal() { $('customer-modal').classList.remove('active'); }
+
+    // Editing the address text invalidates the previously found location
+    $('cust-address-input').addEventListener('input', () => {
+      $('cust-lat').value = ''; $('cust-lng').value = ''; $('cust-formatted-addr').value = '';
+      $('finder-status').textContent = '';
+    });
+    $('cust-address-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); performAddressSearch(); } });
+
+    /* ================= UK address lookup ================= */
+    async function fetchJson(url, ms = 9000) {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), ms);
+      try {
+        const r = await fetch(url, { signal: ctl.signal });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return await r.json();
+      } finally { clearTimeout(t); }
+    }
+
+    function parseHouse(raw) {
+      const m = raw.match(/^(\d+[a-zA-Z]?|\b(?:flat|unit|no\.?)\s+\d+[a-zA-Z]?)\s+/i);
+      return m ? { house: m[1], rest: raw.slice(m[0].length) } : { house: '', rest: raw };
+    }
+    function ukPostcode(str) {
+      const c = str.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      return /^[A-Z]{1,2}\d[A-Z0-9]?\d[A-Z]{2}$/.test(c) ? c : null;
+    }
+    function buildLabel(num, street, town, pc) {
+      const parts = [];
+      if (street) parts.push(num ? `${num} ${street}` : street);
+      if (town) parts.push(town);
+      if (pc) parts.push(pc);
+      parts.push('United Kingdom');
+      return parts.join(', ');
+    }
+
+    // Tries postcodes.io, then Nominatim, then Photon. Never throws.
+    async function lookupAddress(raw) {
+      const { house, rest } = parseHouse(raw);
+      const pc = ukPostcode(rest) || ukPostcode(raw);
+      let attempts = 0, failures = 0;
+      const seen = new Set();
+      const results = [];
+      const add = r => { if (isFinite(r.lat) && isFinite(r.lng) && !seen.has(r.label)) { seen.add(r.label); results.push(r); } };
+
+      if (pc) {
+        attempts++;
+        try {
+          const d = await fetchJson(`https://api.postcodes.io/postcodes/${pc}`);
+          if (d.status === 200 && d.result) {
+            const r = d.result;
+            const place = [house, r.admin_district || r.parish].filter(Boolean).join(' ');
+            add({ label: `${place}, ${r.postcode}, United Kingdom`, lat: r.latitude, lng: r.longitude });
+          }
+        } catch (e) { failures++; }
+        if (results.length) return { results, error: null };
+      }
+
+      attempts++;
+      try {
+        const data = await fetchJson(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=gb&limit=5&q=${encodeURIComponent(raw)}`);
+        (data || []).forEach(item => {
+          const a = item.address || {};
+          add({
+            label: buildLabel(a.house_number || house, a.road || a.pedestrian, a.town || a.city || a.village || a.suburb, a.postcode),
+            lat: parseFloat(item.lat), lng: parseFloat(item.lon)
+          });
+        });
+      } catch (e) { failures++; }
+      if (results.length) return { results, error: null };
+
+      attempts++;
+      try {
+        const d = await fetchJson(`https://photon.komoot.io/api/?q=${encodeURIComponent(raw)}&limit=5&lang=en&bbox=-8.7,49.8,1.9,60.9`);
+        ((d && d.features) || []).forEach(f => {
+          const p = f.properties || {};
+          add({
+            label: buildLabel(p.housenumber || house, p.street || p.name, p.city || p.district || p.county, p.postcode),
+            lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]
+          });
+        });
+      } catch (e) { failures++; }
+
+      return { results, error: results.length ? null : (failures === attempts ? 'network' : 'notfound') };
+    }
+
+    let finderResults = [];
+    async function performAddressSearch() {
+      const raw = $('cust-address-input').value.trim();
+      const status = $('finder-status'), box = $('finder-results'), btn = $('find-btn');
+      box.style.display = 'none'; box.innerHTML = '';
+      if (!raw) { status.innerHTML = '<span style="color:var(--danger-txt);">Enter a house number and street, or a postcode.</span>'; return; }
+
+      status.innerHTML = '<span style="color:var(--text-sub);">Searching UK locations…</span>';
+      btn.disabled = true;
+      const { results, error } = await lookupAddress(raw);
+      btn.disabled = false;
+
+      if (!results.length) {
+        status.innerHTML = error === 'network'
+          ? '<span style="color:var(--danger-txt);">Couldn\'t reach the address service. Check your connection and try again.</span>'
+          : '<span style="color:var(--danger-txt);">Address could not be located. Please check the address or postcode.</span>';
+        return;
+      }
+      finderResults = results;
+      box.innerHTML = results.map((r, i) => `<div class="finder-result-item" data-i="${i}" onclick="selectAddress(+this.dataset.i)">📍 ${esc(r.label)}</div>`).join('');
+      box.style.display = 'block';
+      status.textContent = 'Tap to select address:';
+    }
+
+    function selectAddress(i) {
+      const r = finderResults[i];
+      if (!r) return;
+      $('cust-lat').value = r.lat;
+      $('cust-lng').value = r.lng;
+      $('cust-formatted-addr').value = r.label;
+      $('cust-address-input').value = r.label;
+      $('finder-results').style.display = 'none';
+      $('finder-status').innerHTML = '<span style="color:var(--primary-green);">✓ Address located</span>';
+    }
+
+    async function handleCustomerSave(e) {
+      e.preventDefault();
+      const btn = $('cust-save-btn');
+      const id = $('cust-id').value;
+      let lat = parseFloat($('cust-lat').value), lng = parseFloat($('cust-lng').value);
+      lat = isFinite(lat) ? lat : null; lng = isFinite(lng) ? lng : null;
+      const typed = $('cust-address-input').value.trim();
+      let address = $('cust-formatted-addr').value || typed;
+      let note = 'Job saved';
+
+      // Address typed but never picked from the list: use the best match automatically
+      if (typed && (lat === null || lng === null)) {
+        btn.disabled = true; btn.textContent = 'Locating address…';
+        const { results } = await lookupAddress(typed);
+        btn.disabled = false; btn.textContent = 'Save Job';
+        if (results.length) { lat = results[0].lat; lng = results[0].lng; address = results[0].label; }
+        else note = 'Saved, but the address could not be placed on the map';
+      }
+
+      const record = {
+        id: id || String(Date.now()),
+        name: $('cust-name').value.trim(),
+        project: $('cust-project').value.trim(),
+        status: $('cust-status').value,
+        phone: $('cust-phone').value.trim(),
+        address, lat, lng,
+        notes: $('cust-notes').value.trim()
+      };
+      const idx = id ? customers.findIndex(c => c.id === id) : -1;
+      if (idx !== -1) customers[idx] = record; else customers.push(record);
+
+      mapDirty = true;
+      saveAll();
+      renderCustomerDropdowns();
+      renderCustomerList();
+      renderTimer();
+      closeCustomerModal();
+      toast(note);
+    }
+
+    async function deleteCustomer(id) {
+      const c = findCustomer(id);
+      if (!c) return;
+      if (timer.running && timer.jobId === id) { toast('Stop the timer before deleting this job'); return; }
+      if (!(await askConfirm(`Delete "${c.name}"? Existing time logs are kept.`, 'Delete', 'Delete job'))) return;
+      customers = customers.filter(x => x.id !== id);
+      mapDirty = true;
+      saveAll();
+      renderCustomerDropdowns();
+      renderCustomerList();
+    }
+
+    /* ================= Manage & settings ================= */
+    function addManualLog() {
+      const custId = $('manage-cust-select').value;
+      const hrs = parseFloat($('manage-hours').value);
+      if (!custId) { toast('Add a customer first'); return; }
+      if (!(hrs > 0)) { toast('Enter the hours worked'); return; }
+      const c = findCustomer(custId);
+      const now = Date.now();
+      logs.unshift({ id: String(now), custId, custName: c ? c.name : 'General / Unassigned', ts: now, date: fmtDate(now), hours: hrs, breaks: 0, earnings: Math.round(hrs * settings.rate * 100) / 100 });
+      saveAll();
+      renderOverviewLogs();
+      $('manage-hours').value = '';
+      toast('Shift log added');
+    }
+
+    function applySettings() {
+      $('setting-currency').value = settings.currency;
+      $('setting-rate').value = settings.rate;
+      $('rate-symbol').textContent = settings.currency;
+      $('currency-pill').textContent = `${settings.currency} (${CURRENCY_CODES[settings.currency] || ''})`;
+    }
+    function onCurrencyChange() {
+      settings.currency = $('setting-currency').value;
+      saveAll(); applySettings(); renderClock(); renderOverviewLogs();
+    }
+    function onRateChange() {
+      const r = parseFloat($('setting-rate').value);
+      if (isFinite(r) && r >= 0) { settings.rate = r; saveAll(); renderClock(); }
+    }
+    async function resetDemoData() {
+      if (timer.running) { toast('Stop the timer first'); return; }
+      if (!(await askConfirm('Replace your customers with the demo set? Time logs are kept.', 'Restore demo', 'Reset demo data'))) return;
+      customers = clone(defaultCustomers);
+      mapDirty = true;
+      saveAll();
+      renderCustomerDropdowns();
+      renderCustomerList();
+      toast('Demo data restored');
+    }
+
+    /* ================= Map ================= */
+    let map = null, markerLayer = null, tileLayer = null;
+    let mapDirty = true, libTries = 0, tileErrors = 0, tilesOk = 0, tileIdx = 0;
+
+    // OpenStreetMap's own tiles work fine from a hosted site (they need a Referer, which a website sends).
+    // Esri is the backup if they fail. CARTO was removed: it now requires an API key.
+    const TILE_SOURCES = [
+      { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' } },
+      { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 19, attribution: 'Tiles &copy; Esri' } }
+    ];
+
+    function useTileSource(i) {
+      if (tileLayer) map.removeLayer(tileLayer);
+      tileErrors = 0; tilesOk = 0; tileIdx = i;
+      const src = TILE_SOURCES[i];
+      tileLayer = L.tileLayer(src.url, src.opts).addTo(map);
+      tileLayer.on('tileload', () => { tilesOk++; $('map-banner').style.display = 'none'; });
+      tileLayer.on('tileerror', () => {
+        tileErrors++;
+        if (tilesOk === 0 && tileErrors >= 3) {
+          if (tileIdx + 1 < TILE_SOURCES.length) { useTileSource(tileIdx + 1); }
+          else if (tileErrors === 3) {
+            const b = $('map-banner');
+            b.innerHTML = 'Street map images can\'t load in this viewer, so pins are shown on a blank canvas. Open the file in Safari for the full map. <a href="#" onclick="showMapFallback(\'Map images are blocked in this viewer.\');return false;">Show job list instead</a>';
+            b.style.display = 'block';
+            setOfflineLabels(true);
+          }
+        }
+      });
+    }
+
+    function mapsLinks(c) {
+      const q = c.lat && c.lng ? `${c.lat},${c.lng}` : encodeURIComponent(c.address || c.name);
+      return { apple: `https://maps.apple.com/?q=${q}`, google: `https://www.google.com/maps/search/?api=1&query=${q}` };
+    }
+
+    function showMapFallback(reason) {
+      const rows = customers.filter(c => c.address || (c.lat && c.lng)).map(c => {
+        const l = mapsLinks(c);
+        return `<div class="job-card">
+          <div class="job-card-top"><h3>${esc(c.name)}</h3><span class="status-pill ${c.status === 'New' ? 'new' : c.status === 'In Progress' ? 'progress' : 'completed'}">${esc(c.status)}</span></div>
+          <div class="job-card-project">${esc(c.project)}</div>
+          <div class="job-card-meta"><span>📍</span><span>${esc(c.address)}</span></div>
+          <div class="job-card-actions">
+            <a class="btn-action-sm" href="${l.apple}" target="_blank" rel="noopener">Apple Maps</a>
+            <a class="btn-action-sm" href="${l.google}" target="_blank" rel="noopener">Google Maps</a>
+          </div></div>`;
+      }).join('');
+      const fb = $('map-fallback');
+      fb.innerHTML = `<div class="card"><b>The map couldn't load</b>
+        <div style="font-size:13px;color:var(--text-sub);margin:6px 0 12px;line-height:1.4;">${esc(reason)}</div>
+        <button class="btn-blue" onclick="retryMap()">Try again</button></div>` +
+        (rows || '<div class="empty">No jobs with an address yet.</div>');
+      fb.style.display = 'block';
+    }
+
+    function retryMap() {
+      if (map) { map.remove(); map = null; markerLayer = null; tileLayer = null; }
+      libTries = 0; mapDirty = true;
+      $('map-banner').style.display = 'none';
+      showMap();
+    }
+
+    let offlineLabels = false;
+    function setOfflineLabels(on) {
+      offlineLabels = on;
+      if (!markerLayer) return;
+      markerLayer.eachLayer(m => {
+        m.unbindTooltip();
+        if (on && m.customerName) m.bindTooltip(m.customerName, { permanent: true, direction: 'right', offset: [12, -14] });
+      });
+    }
+
+    function pinIcon(status) {
+      const cls = status === 'New' ? 'new' : status === 'In Progress' ? 'progress' : 'completed';
+      return L.divIcon({ className: 'pin-wrap', html: `<div class="pin ${cls}"></div>`, iconSize: [26, 26], iconAnchor: [13, 26], popupAnchor: [0, -24] });
+    }
+
+    function showMap() {
+      // Leaflet may be blocked, offline, or still loading from the backup CDN
+      if (typeof L === 'undefined') {
+        if (libTries++ < 4) { setTimeout(showMap, 1000); return; }
+        showMapFallback('The map library couldn\'t be downloaded. Check your connection, or open this file in Safari or Chrome.');
+        return;
+      }
+      $('map-fallback').style.display = 'none';
+
+      if (!map) {
+        map = L.map('map-frame', { zoomControl: false }).setView([54.0, -2.5], 6);
+        markerLayer = L.layerGroup().addTo(map);
+        useTileSource(0);
+        mapDirty = true;
+      }
+      map.invalidateSize();
+
+      if (mapDirty) {
+        markerLayer.clearLayers();
+        const pts = [];
+        customers.forEach(c => {
+          if (!(c.lat && c.lng)) return;
+          const l = mapsLinks(c);
+          const marker = L.marker([c.lat, c.lng], { icon: pinIcon(c.status) }).addTo(markerLayer);
+          marker.customerName = c.name;
+          marker.bindPopup(`
+            <div style="padding:2px;">
+              <strong>${esc(c.name)}</strong><br>
+              <span style="color:#007aff;font-size:12px;">${esc(c.project)}</span><br>
+              <small>${esc(c.address)}</small><br>
+              <span class="popup-links"><a href="${l.apple}" target="_blank" rel="noopener">Apple Maps</a> · <a href="${l.google}" target="_blank" rel="noopener">Google Maps</a></span>
+            </div>`);
+          pts.push([c.lat, c.lng]);
+        });
+        if (offlineLabels) setOfflineLabels(true);
+        $('map-empty').style.display = pts.length ? 'none' : 'block';
+        if (pts.length === 1) map.setView(pts[0], 15);
+        else if (pts.length > 1) map.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
+        mapDirty = false;
+      }
+    }
+
+    /* ================= Init ================= */
+    applySettings();
+    renderCustomerDropdowns();
+    renderCustomerList();
+    renderOverviewLogs();
+    renderTimer();
+  </script>
+</body>
+</html>
