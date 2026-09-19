@@ -120,6 +120,30 @@
     .job-card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
     .btn-action-sm { background: #f2f2f7; color: var(--text-main); border: none; border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
     .btn-action-danger { background: var(--danger-bg); color: var(--danger-txt); }
+    .job-card-contact { display: flex; gap: 8px; margin-top: 10px; }
+    .job-card-contact .btn-action-sm { flex: 1; justify-content: center; padding: 10px 6px; }
+    .mini-link { border: none; background: none; color: #007aff; font-size: 12px; font-weight: 600; padding: 0 0 0 4px; cursor: pointer; }
+    .seg { display: flex; gap: 6px; margin: 12px 0 14px; overflow-x: auto; }
+    .seg button { border: none; border-radius: 16px; padding: 7px 14px; font-size: 13px; font-weight: 600; background: #f2f2f7; color: #3a3a3c; white-space: nowrap; cursor: pointer; }
+    .seg button.on { background: #007aff; color: #fff; }
+    .up-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f2f2f7; font-size: 14px; }
+    .up-row:last-child { border-bottom: none; }
+    .up-row.tap { cursor: pointer; }
+    .up-row .r { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .chart { display: flex; align-items: flex-end; gap: 3px; height: 90px; padding-top: 6px; }
+    .chart .col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+    .chart .bar { width: 80%; max-width: 26px; background: #007aff; border-radius: 4px 4px 0 0; }
+    .chart-labels { display: flex; gap: 3px; font-size: 10px; color: var(--text-sub); margin-top: 4px; }
+    .chart-labels span { flex: 1; text-align: center; overflow: hidden; }
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+    .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: #eee; cursor: pointer; }
+    .photo-empty { grid-column: 1 / -1; font-size: 13px; color: var(--text-sub); padding: 6px 0; }
+    .photo-viewer { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.92); z-index: 2400; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
+    .photo-viewer.active { display: flex; }
+    .photo-viewer img { max-width: 100%; max-height: 72vh; border-radius: 8px; }
+    .viewer-caption { color: #fff; font-size: 13px; margin: 12px 0; }
+    .viewer-actions { display: flex; gap: 10px; }
+    .viewer-actions button { border: none; border-radius: 12px; padding: 12px 22px; font-size: 15px; font-weight: 700; cursor: pointer; }
     .status-pill { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .status-pill.new { background: var(--status-new-bg); color: var(--status-new-txt); }
     .status-pill.progress { background: var(--status-prog-bg); color: var(--status-prog-txt); }
@@ -241,10 +265,28 @@
           </div>
         </div>
       </div>
+
+      <div class="card">
+        <div class="card-section-label">Coming up</div>
+        <div id="upcoming-list"></div>
+      </div>
     </div>
 
     <!-- Tab 2: Overview -->
     <div id="tab-overview" class="tab-pane">
+      <div class="card">
+        <div class="card-header-title">Earnings summary</div>
+        <div class="seg" id="sum-chips"></div>
+        <div class="summary-grid">
+          <div class="summary-box"><div class="lbl">Hours</div><div class="num" id="sum-hours">0.0 hrs</div></div>
+          <div class="summary-box"><div class="lbl">Earned</div><div class="num" style="color: var(--primary-green);" id="sum-earned">£0.00</div></div>
+        </div>
+        <div id="sum-extra" style="font-size: 12px; color: var(--text-sub); margin: 10px 0;"></div>
+        <div id="sum-chart"></div>
+        <div class="card-section-label" style="margin-top: 14px;">By customer</div>
+        <div id="sum-by-cust"></div>
+        <button type="button" class="btn-blue" style="width: 100%; justify-content: center; padding: 13px; margin-top: 14px;" onclick="exportTimesheet()">📤 Export timesheet (CSV)</button>
+      </div>
       <div class="card">
         <div class="card-header-title">Time Logs & Summary</div>
         <div class="card-subtitle">Tap a log to view details, edit or delete it.</div>
@@ -334,10 +376,22 @@
           </div>
         </div>
 
+        <div style="margin-bottom: 20px;">
+          <div class="card-section-label">Backup & restore</div>
+          <div style="font-size: 13px; color: var(--text-sub); line-height: 1.4; margin-bottom: 10px;">Your jobs, time logs and pin locations are stored only on this phone. Save a backup file now and then, and restore it on any phone.</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button type="button" class="btn-blue" style="justify-content: center; padding: 13px;" onclick="exportBackup()">💾 Save backup</button>
+            <button type="button" class="btn-blue" style="justify-content: center; padding: 13px; background: #5856d6;" onclick="$('import-file').click()">📂 Restore</button>
+          </div>
+          <input type="file" id="import-file" accept=".json,application/json,text/plain" style="display: none;" onchange="importBackup(this)">
+          <div id="backup-status" style="font-size: 12px; color: var(--text-sub); margin-top: 8px;"></div>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 10px;"><input type="checkbox" id="backup-photos" onchange="onBackupPhotosChange()"> Include photos in backup (much bigger file)</label>
+        </div>
+
         <button style="width: 100%; background: #ffe5e5; color: #ff3b30; border: none; border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer;" onclick="resetDemoData()">
           Reset Demo Data & Customer Pins
         </button>
-        <div style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 14px;">Version 7 · map: OpenStreetMap</div>
+        <div style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 14px;">Version 10 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -383,8 +437,19 @@
           </div>
         </div>
 
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <div class="card-section-label">Collection date</div>
+            <input type="date" class="ios-input" id="cust-collect">
+          </div>
+          <div>
+            <div class="card-section-label">Due / delivery date</div>
+            <input type="date" class="ios-input" id="cust-deliver">
+          </div>
+        </div>
+
         <div class="uk-finder-box">
-          <div class="card-section-label" style="color: #007aff;">UK address & postcode finder</div>
+          <div class="card-section-label" style="color: #007aff;">Address & postcode finder</div>
           <div style="display: flex; gap: 8px; margin-top: 6px;">
             <input type="text" class="ios-input" id="cust-address-input" placeholder="3 firs close hazlemere">
             <button type="button" class="btn-blue" id="find-btn" style="white-space: nowrap;" onclick="performAddressSearch()">🔍 Find</button>
@@ -464,6 +529,34 @@
           <button type="submit" class="btn-blue" style="justify-content: center; font-weight: 700;">Save Changes</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Photos sheet -->
+  <div class="modal-backdrop" id="photo-modal" onclick="if(event.target===this)closePhotoSheet()">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h2 id="photo-title">Photos</h2>
+        <button class="modal-close" type="button" onclick="closePhotoSheet()" aria-label="Close">&times;</button>
+      </div>
+      <div class="card-section-label">Before</div>
+      <div class="photo-grid" id="photo-grid-before"></div>
+      <button type="button" class="btn-blue" style="width: 100%; justify-content: center; padding: 12px; margin-bottom: 18px;" onclick="$('photo-input-before').click()">📷 Add before photos</button>
+      <input type="file" id="photo-input-before" accept="image/*" multiple style="display: none;" onchange="addPhotos('before', this)">
+
+      <div class="card-section-label">After</div>
+      <div class="photo-grid" id="photo-grid-after"></div>
+      <button type="button" class="btn-blue" style="width: 100%; justify-content: center; padding: 12px; background: #34c759;" onclick="$('photo-input-after').click()">📷 Add after photos</button>
+      <input type="file" id="photo-input-after" accept="image/*" multiple style="display: none;" onchange="addPhotos('after', this)">
+    </div>
+  </div>
+
+  <div class="photo-viewer" id="photo-viewer">
+    <img id="viewer-img" alt="">
+    <div class="viewer-caption" id="viewer-caption"></div>
+    <div class="viewer-actions">
+      <button type="button" style="background: #e5e5ea;" onclick="closeViewer()">Close</button>
+      <button type="button" style="background: #ff3b30; color: #fff;" onclick="deleteViewedPhoto()">Delete</button>
     </div>
   </div>
 
@@ -643,6 +736,7 @@
     }
 
     function renderCustomerList() {
+      renderUpcoming();
       const container = $('customer-cards-container');
       const q = ($('customer-search-input').value || '').toLowerCase().trim();
       const list = customers.filter(c => !q || [c.name, c.project, c.address].some(v => (v || '').toLowerCase().includes(q)));
@@ -654,7 +748,7 @@
       container.innerHTML = list.map(c => {
         const pill = c.status === 'New' ? 'new' : c.status === 'In Progress' ? 'progress' : 'completed';
         return `
-          <div class="job-card">
+          <div class="job-card" id="card-${esc(c.id)}">
             <div class="job-card-top">
               <h3>${esc(c.name)}</h3>
               <span class="status-pill ${pill}">${esc(c.status)}</span>
@@ -662,14 +756,17 @@
             <div class="job-card-project">${esc(c.project)}</div>
             <div class="job-card-meta"><span>📍</span><span>${esc(c.address) || 'No address set'}${c.address && !(c.lat && c.lng) ? ' (not on map)' : ''}</span></div>
             <div class="job-card-meta"><span>📞</span><span>${esc(c.phone) || 'N/A'}</span></div>
+            ${dateRows(c)}
             ${c.notes ? `<div class="job-card-note">${esc(c.notes)}</div>` : ''}
+            ${contactRow(c)}
             <div class="job-card-actions">
-              ${c.phone ? `<a class="btn-action-sm" href="tel:${esc(c.phone.replace(/[^0-9+]/g, ''))}">📞 Call</a>` : ''}
+              <button class="btn-action-sm" data-id="${esc(c.id)}" onclick="openPhotoSheet(this.dataset.id)">📷 Photos<span class="pcount" data-job="${esc(c.id)}"></span></button>
               <button class="btn-action-sm" data-id="${esc(c.id)}" onclick="openCustomerModal(this.dataset.id)">✏️ Edit</button>
               <button class="btn-action-sm btn-action-danger" data-id="${esc(c.id)}" onclick="deleteCustomer(this.dataset.id)">🗑️</button>
             </div>
           </div>`;
       }).join('');
+      refreshPhotoCounts();
     }
 
     function isToday(l) { return l.ts ? new Date(l.ts).toDateString() === new Date().toDateString() : l.date === fmtDate(Date.now()); }
@@ -703,6 +800,7 @@
           </div>`).join('');
       }
       renderSummary();
+      renderEarnings();
     }
 
     /* ---- In-page confirm dialog ---- */
@@ -810,7 +908,7 @@
 
     /* ================= Customer modal ================= */
     function openCustomerModal(id) {
-      ['cust-id', 'cust-name', 'cust-project', 'cust-phone', 'cust-address-input', 'cust-formatted-addr', 'cust-lat', 'cust-lng', 'cust-notes'].forEach(f => $(f).value = '');
+      ['cust-id', 'cust-name', 'cust-project', 'cust-phone', 'cust-address-input', 'cust-formatted-addr', 'cust-lat', 'cust-lng', 'cust-notes', 'cust-collect', 'cust-deliver'].forEach(f => $(f).value = '');
       $('cust-status').value = 'New';
       $('finder-results').style.display = 'none';
       $('finder-status').textContent = '';
@@ -829,6 +927,8 @@
         $('cust-lat').value = c.lat || '';
         $('cust-lng').value = c.lng || '';
         $('cust-notes').value = c.notes || '';
+        $('cust-collect').value = c.collectDate || '';
+        $('cust-deliver').value = c.deliverDate || '';
       }
       $('customer-modal').classList.add('active');
     }
@@ -860,23 +960,52 @@
       const c = str.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
       return /^[A-Z]{1,2}\d[A-Z0-9]?\d[A-Z]{2}$/.test(c) ? c : null;
     }
-    function buildLabel(num, street, town, pc) {
+    function buildLabel(num, street, town, pc, country) {
       const parts = [];
       if (street) parts.push(num ? `${num} ${street}` : street);
       if (town) parts.push(town);
       if (pc) parts.push(pc);
-      parts.push('United Kingdom');
+      if (country) parts.push(country);
       return parts.join(', ');
     }
 
-    // Tries postcodes.io, then Nominatim, then Photon. Never throws.
+    // Tries UK postcodes first, then UK-only searches, then anywhere in the world.
+    // Uses postcodes.io, Nominatim and Photon. Never throws.
     async function lookupAddress(raw) {
       const { house, rest } = parseHouse(raw);
       const pc = ukPostcode(rest) || ukPostcode(raw);
       let attempts = 0, failures = 0;
       const seen = new Set();
       const results = [];
-      const add = r => { if (isFinite(r.lat) && isFinite(r.lng) && !seen.has(r.label)) { seen.add(r.label); results.push(r); } };
+      const add = r => { if (isFinite(r.lat) && isFinite(r.lng) && r.label && !seen.has(r.label)) { seen.add(r.label); results.push(r); } };
+
+      const nominatim = async ukOnly => {
+        attempts++;
+        try {
+          const data = await fetchJson(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&accept-language=en&limit=5${ukOnly ? '&countrycodes=gb' : ''}&q=${encodeURIComponent(raw)}`);
+          (data || []).forEach(item => {
+            const a = item.address || {};
+            add({
+              label: buildLabel(a.house_number || house, a.road || a.pedestrian, a.town || a.city || a.village || a.suburb, a.postcode, a.country || (ukOnly ? 'United Kingdom' : '')),
+              lat: parseFloat(item.lat), lng: parseFloat(item.lon)
+            });
+          });
+        } catch (e) { failures++; }
+      };
+
+      const photon = async ukOnly => {
+        attempts++;
+        try {
+          const d = await fetchJson(`https://photon.komoot.io/api/?q=${encodeURIComponent(raw)}&limit=5&lang=en${ukOnly ? '&bbox=-8.7,49.8,1.9,60.9' : ''}`);
+          ((d && d.features) || []).forEach(f => {
+            const p = f.properties || {};
+            add({
+              label: buildLabel(p.housenumber || house, p.street || p.name, p.city || p.district || p.county, p.postcode, p.country || (ukOnly ? 'United Kingdom' : '')),
+              lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]
+            });
+          });
+        } catch (e) { failures++; }
+      };
 
       if (pc) {
         attempts++;
@@ -891,30 +1020,10 @@
         if (results.length) return { results, error: null };
       }
 
-      attempts++;
-      try {
-        const data = await fetchJson(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=gb&limit=5&q=${encodeURIComponent(raw)}`);
-        (data || []).forEach(item => {
-          const a = item.address || {};
-          add({
-            label: buildLabel(a.house_number || house, a.road || a.pedestrian, a.town || a.city || a.village || a.suburb, a.postcode),
-            lat: parseFloat(item.lat), lng: parseFloat(item.lon)
-          });
-        });
-      } catch (e) { failures++; }
-      if (results.length) return { results, error: null };
-
-      attempts++;
-      try {
-        const d = await fetchJson(`https://photon.komoot.io/api/?q=${encodeURIComponent(raw)}&limit=5&lang=en&bbox=-8.7,49.8,1.9,60.9`);
-        ((d && d.features) || []).forEach(f => {
-          const p = f.properties || {};
-          add({
-            label: buildLabel(p.housenumber || house, p.street || p.name, p.city || p.district || p.county, p.postcode),
-            lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]
-          });
-        });
-      } catch (e) { failures++; }
+      await nominatim(true);  if (results.length) return { results, error: null };
+      await nominatim(false); if (results.length) return { results, error: null };
+      await photon(true);     if (results.length) return { results, error: null };
+      await photon(false);
 
       return { results, error: results.length ? null : (failures === attempts ? 'network' : 'notfound') };
     }
@@ -926,7 +1035,7 @@
       box.style.display = 'none'; box.innerHTML = '';
       if (!raw) { status.innerHTML = '<span style="color:var(--danger-txt);">Enter a house number and street, or a postcode.</span>'; return; }
 
-      status.innerHTML = '<span style="color:var(--text-sub);">Searching UK locations…</span>';
+      status.innerHTML = '<span style="color:var(--text-sub);">Searching locations…</span>';
       btn.disabled = true;
       const { results, error } = await lookupAddress(raw);
       btn.disabled = false;
@@ -980,7 +1089,9 @@
         status: $('cust-status').value,
         phone: $('cust-phone').value.trim(),
         address, lat, lng,
-        notes: $('cust-notes').value.trim()
+        notes: $('cust-notes').value.trim(),
+        collectDate: $('cust-collect').value || '',
+        deliverDate: $('cust-deliver').value || ''
       };
       const idx = id ? customers.findIndex(c => c.id === id) : -1;
       if (idx !== -1) customers[idx] = record; else customers.push(record);
@@ -1000,6 +1111,7 @@
       if (timer.running && timer.jobId === id) { toast('Stop the timer before deleting this job'); return; }
       if (!(await askConfirm(`Delete "${c.name}"? Existing time logs are kept.`, 'Delete', 'Delete job'))) return;
       customers = customers.filter(x => x.id !== id);
+      photosDeleteForJob(id).catch(() => {});
       mapDirty = true;
       saveAll();
       renderCustomerDropdowns();
@@ -1026,6 +1138,8 @@
       $('setting-rate').value = settings.rate;
       $('rate-symbol').textContent = settings.currency;
       $('currency-pill').textContent = `${settings.currency} (${CURRENCY_CODES[settings.currency] || ''})`;
+      renderBackupStatus();
+      $('backup-photos').checked = !!settings.backupPhotos;
     }
     function onCurrencyChange() {
       settings.currency = $('setting-currency').value;
@@ -1035,6 +1149,402 @@
       const r = parseFloat($('setting-rate').value);
       if (isFinite(r) && r >= 0) { settings.rate = r; saveAll(); renderClock(); }
     }
+    /* ================= Files: share sheet or download ================= */
+    async function shareOrDownload(name, type, content, title) {
+      try {
+        const file = new File([content], name, { type });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title });
+          return 'shared';
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return 'cancelled';   // you closed the share sheet
+      }
+      try {
+        const url = URL.createObjectURL(new Blob([content], { type }));
+        const a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        return 'downloaded';
+      } catch (e) { return 'failed'; }
+    }
+
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(blob);
+      });
+    }
+    function dataURLToBlob(dataUrl) {
+      const [head, b64] = dataUrl.split(',');
+      const type = (head.match(/data:(.*?);/) || [])[1] || 'image/jpeg';
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Blob([bytes], { type });
+    }
+
+    /* ================= Photos (kept on this phone in IndexedDB) ================= */
+    let dbPromise = null;
+    function photoDB() {
+      if (!dbPromise) dbPromise = new Promise((resolve, reject) => {
+        try {
+          const req = indexedDB.open('um_photos', 1);
+          req.onupgradeneeded = () => { const s = req.result.createObjectStore('photos', { keyPath: 'id' }); s.createIndex('jobId', 'jobId'); };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        } catch (e) { reject(e); }
+      });
+      return dbPromise;
+    }
+    // Runs fn(store) in one transaction; fn returns an object whose .result is the answer
+    function withStore(mode, fn) {
+      return photoDB().then(db => new Promise((resolve, reject) => {
+        const t = db.transaction('photos', mode);
+        const s = t.objectStore('photos');
+        let out;
+        try { out = fn(s); } catch (e) { reject(e); return; }
+        t.oncomplete = () => resolve(out ? out.result : undefined);
+        t.onerror = () => reject(t.error);
+        t.onabort = () => reject(t.error);
+      }));
+    }
+    const photosFor = jobId => withStore('readonly', s => s.index('jobId').getAll(jobId));
+    const photosAll = () => withStore('readonly', s => s.getAll());
+    const photoAdd = rec => withStore('readwrite', s => s.put(rec));
+    const photoDelete = id => withStore('readwrite', s => s.delete(id));
+    const photosClear = () => withStore('readwrite', s => s.clear());
+    const photosDeleteForJob = jobId => withStore('readwrite', s => {
+      const r = s.index('jobId').getAllKeys(jobId);
+      r.onsuccess = () => r.result.forEach(k => s.delete(k));
+      return r;
+    });
+    const photoCounts = () => withStore('readonly', s => {
+      const holder = { result: {} };
+      const cur = s.index('jobId').openKeyCursor();
+      cur.onsuccess = () => { const c = cur.result; if (c) { holder.result[c.key] = (holder.result[c.key] || 0) + 1; c.continue(); } };
+      return holder;
+    });
+    const photosPruneTo = validIds => withStore('readwrite', s => {
+      const cur = s.index('jobId').openKeyCursor();
+      cur.onsuccess = () => { const c = cur.result; if (c) { if (!validIds.has(String(c.key))) s.delete(c.primaryKey); c.continue(); } };
+      return { result: undefined };
+    });
+
+    async function refreshPhotoCounts() {
+      try {
+        const counts = await photoCounts();
+        document.querySelectorAll('.pcount').forEach(el => { const n = counts[el.dataset.job] || 0; el.textContent = n ? ` (${n})` : ''; });
+      } catch (e) { /* photos unavailable here */ }
+    }
+
+    // Resize big camera photos so they use far less space
+    function shrinkImage(file, maxDim, quality) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+          const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error('encode failed')), 'image/jpeg', quality);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load failed')); };
+        img.src = url;
+      });
+    }
+
+    let photoJobId = null, photoViewId = null, photoURLs = [], photoById = {}, photoUrlById = {};
+    function revokePhotoURLs() { photoURLs.forEach(u => URL.revokeObjectURL(u)); photoURLs = []; photoById = {}; photoUrlById = {}; }
+
+    function openPhotoSheet(id) {
+      const c = findCustomer(id);
+      if (!c) return;
+      photoJobId = id;
+      $('photo-title').textContent = 'Photos · ' + c.name;
+      $('photo-modal').classList.add('active');
+      renderPhotoSheet();
+    }
+    function closePhotoSheet() {
+      closeViewer();
+      $('photo-modal').classList.remove('active');
+      revokePhotoURLs();
+      photoJobId = null;
+      refreshPhotoCounts();
+    }
+
+    async function renderPhotoSheet() {
+      let recs = [];
+      try { recs = await photosFor(photoJobId); } catch (e) { toast('Photos aren\'t available in this browser'); }
+      revokePhotoURLs();
+      recs.sort((a, b) => a.ts - b.ts);
+      ['before', 'after'].forEach(kind => {
+        const mine = recs.filter(r => r.kind === kind);
+        $('photo-grid-' + kind).innerHTML = mine.length
+          ? mine.map(r => {
+              const u = URL.createObjectURL(r.blob);
+              photoURLs.push(u); photoById[r.id] = r; photoUrlById[r.id] = u;
+              return `<img src="${u}" alt="${kind} photo" data-id="${esc(r.id)}" onclick="openViewer(this.dataset.id)">`;
+            }).join('')
+          : '<div class="photo-empty">No photos yet</div>';
+      });
+    }
+
+    async function addPhotos(kind, input) {
+      const files = Array.from(input.files || []);
+      input.value = '';
+      if (!files.length || !photoJobId) return;
+      toast(files.length > 1 ? `Adding ${files.length} photos…` : 'Adding photo…');
+      let added = 0;
+      for (const f of files) {
+        try {
+          const blob = await shrinkImage(f, 1600, 0.8);
+          await photoAdd({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), jobId: photoJobId, kind, ts: Date.now(), blob });
+          added++;
+        } catch (e) { /* skip this one */ }
+      }
+      await renderPhotoSheet();
+      refreshPhotoCounts();
+      toast(added ? `${added} photo${added === 1 ? '' : 's'} added` : 'Couldn\'t add that photo');
+    }
+
+    function openViewer(id) {
+      const r = photoById[id];
+      if (!r) return;
+      photoViewId = id;
+      $('viewer-img').src = photoUrlById[id];
+      $('viewer-caption').textContent = (r.kind === 'after' ? 'After' : 'Before') + ' · ' + fmtDate(r.ts);
+      $('photo-viewer').classList.add('active');
+    }
+    function closeViewer() { $('photo-viewer').classList.remove('active'); photoViewId = null; }
+    async function deleteViewedPhoto() {
+      const id = photoViewId;
+      if (!id) return;
+      if (!(await askConfirm('Delete this photo? This can\'t be undone.', 'Delete', 'Delete photo'))) return;
+      try { await photoDelete(id); } catch (e) { toast('Couldn\'t delete the photo'); return; }
+      closeViewer();
+      await renderPhotoSheet();
+      refreshPhotoCounts();
+    }
+
+    /* ================= Job dates & calendar ================= */
+    function dayDiff(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const n = new Date();
+      return Math.round((new Date(y, m - 1, d) - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 86400000);
+    }
+    function prettyDay(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+    function whenLabel(diff) {
+      return diff < 0 ? `${-diff} day${diff === -1 ? '' : 's'} overdue` : diff === 0 ? 'today' : diff === 1 ? 'tomorrow' : `in ${diff} days`;
+    }
+    const DATE_FIELDS = [['collectDate', 'Collect', '📥'], ['deliverDate', 'Deliver', '📦']];
+
+    function dateRows(c) {
+      return DATE_FIELDS.filter(([f]) => c[f]).map(([f, label, icon]) => {
+        const open = c.status !== 'Completed';
+        const diff = dayDiff(c[f]);
+        const color = !open ? 'var(--text-sub)' : diff < 0 ? '#ff3b30' : diff <= 1 ? '#ff9500' : 'var(--text-sub)';
+        return `<div class="job-card-meta" style="color:${color};"><span>${icon}</span><span>${label}: <b>${prettyDay(c[f])}</b>${open ? ' · ' + whenLabel(diff) : ''}
+          <button type="button" class="mini-link" data-id="${esc(c.id)}" data-f="${f}" onclick="addToCalendar(this.dataset.id, this.dataset.f)">+ Calendar</button></span></div>`;
+      }).join('');
+    }
+
+    function renderUpcoming() {
+      const box = $('upcoming-list');
+      if (!box) return;
+      const ev = [];
+      customers.forEach(c => {
+        if (c.status === 'Completed') return;
+        DATE_FIELDS.forEach(([f, label, icon]) => { if (c[f]) ev.push({ c, label, icon, diff: dayDiff(c[f]) }); });
+      });
+      ev.sort((a, b) => a.diff - b.diff);
+      box.innerHTML = ev.length
+        ? ev.slice(0, 6).map(e => {
+            const color = e.diff < 0 ? '#ff3b30' : e.diff <= 1 ? '#ff9500' : 'var(--text-sub)';
+            return `<div class="up-row tap" data-id="${esc(e.c.id)}" onclick="jumpToCustomer(this.dataset.id)">
+              <span>${e.icon} <b>${esc(e.label)}</b> · ${esc(e.c.name)}</span>
+              <span class="r" style="color:${color};">${whenLabel(e.diff)}</span></div>`;
+          }).join('')
+        : '<div class="empty" style="padding: 10px 0;">No dates set yet. Add a collection or delivery date to a job.</div>';
+    }
+
+    function jumpToCustomer(id) {
+      $('customer-search-input').value = '';
+      renderCustomerList();
+      switchTab('tab-customers');
+      setTimeout(() => {
+        const el = document.getElementById('card-' + id);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.outline = '2px solid #007aff';
+        setTimeout(() => { el.style.outline = ''; }, 1800);
+      }, 80);
+    }
+
+    function icsEscape(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+    async function addToCalendar(id, field) {
+      const c = findCustomer(id);
+      if (!c || !c[field]) return;
+      const [y, m, d] = c[field].split('-').map(Number);
+      const ymd = dt => `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}`;
+      const verb = field === 'collectDate' ? 'Collect' : 'Deliver';
+      const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+      const desc = [c.phone && 'Phone: ' + c.phone, c.address, c.notes].filter(Boolean).join('\n');
+      const lines = [
+        'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//UpholsteryMate//EN', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+        `UID:${c.id}-${field}@upholsterymate`, `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${ymd(new Date(y, m - 1, d))}`, `DTEND;VALUE=DATE:${ymd(new Date(y, m - 1, d + 1))}`,
+        `SUMMARY:${icsEscape(`${verb}: ${c.name} - ${c.project}`)}`,
+        `DESCRIPTION:${icsEscape(desc)}`,
+        c.address ? `LOCATION:${icsEscape(c.address)}` : '',
+        'BEGIN:VALARM', 'TRIGGER:-PT15H', 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(`Tomorrow: ${verb.toLowerCase()} ${c.name}`)}`, 'END:VALARM',
+        'END:VEVENT', 'END:VCALENDAR'
+      ].filter(Boolean);
+      const res = await shareOrDownload(`${verb.toLowerCase()}-${c.name.replace(/[^A-Za-z0-9]+/g, '-')}.ics`, 'text/calendar', lines.join('\r\n'), `${verb}: ${c.name}`);
+      if (res === 'failed') toast('Couldn\'t create the calendar event');
+      else if (res === 'downloaded') toast('Open the downloaded file to add it to Calendar');
+    }
+
+    /* ================= Earnings summary ================= */
+    let sumRange = 'week';
+    const logTime = l => l.ts || Date.parse(l.date) || 0;
+    function setSumRange(r) { sumRange = r; renderEarnings(); }
+
+    function rangeBounds(r) {
+      const n = new Date(), y = n.getFullYear(), m = n.getMonth();
+      const sod = new Date(y, m, n.getDate());
+      if (r === 'week') { const start = new Date(sod); start.setDate(sod.getDate() - ((sod.getDay() + 6) % 7)); const end = new Date(start); end.setDate(start.getDate() + 7); return { start, end }; }
+      if (r === 'month') return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
+      if (r === 'last') return { start: new Date(y, m - 1, 1), end: new Date(y, m, 1) };
+      return { start: new Date(0), end: new Date(8.64e15) };
+    }
+    const logsInRange = r => { const { start, end } = rangeBounds(r); return logs.filter(l => { const t = logTime(l); return t >= start.getTime() && t < end.getTime(); }); };
+
+    function renderEarnings() {
+      const chips = $('sum-chips');
+      if (!chips) return;
+      chips.innerHTML = [['week', 'This week'], ['month', 'This month'], ['last', 'Last month'], ['all', 'All time']]
+        .map(([k, t]) => `<button type="button" class="${sumRange === k ? 'on' : ''}" onclick="setSumRange('${k}')">${t}</button>`).join('');
+
+      const list = logsInRange(sumRange);
+      const hours = list.reduce((s, l) => s + (l.hours || 0), 0);
+      const earned = list.reduce((s, l) => s + (l.earnings || 0), 0);
+      const days = new Set(list.map(l => new Date(logTime(l)).toDateString())).size;
+      $('sum-hours').textContent = hours.toFixed(1) + ' hrs';
+      $('sum-earned').textContent = money(earned);
+      $('sum-extra').textContent = list.length
+        ? `${list.length} log${list.length === 1 ? '' : 's'} on ${days} day${days === 1 ? '' : 's'} · average ${(hours / days).toFixed(1)} hrs/day`
+        : 'Nothing logged in this period.';
+
+      // Daily hours chart (not for "all time")
+      const chart = $('sum-chart');
+      if (sumRange === 'all') { chart.innerHTML = ''; }
+      else {
+        const { start, end } = rangeBounds(sumRange);
+        const n = Math.round((end - start) / 86400000);
+        const perDay = new Array(n).fill(0);
+        list.forEach(l => { const i = Math.floor((logTime(l) - start.getTime()) / 86400000); if (i >= 0 && i < n) perDay[i] += l.hours || 0; });
+        const max = Math.max(...perDay, 0.1);
+        const bars = perDay.map(h => `<div class="col"><div class="bar" style="height:${(h / max) * 100}%;min-height:${h > 0 ? 3 : 0}px;"></div></div>`).join('');
+        const labels = perDay.map((_, i) => `<span>${sumRange === 'week' ? 'MTWTFSS'[i] : (i % 5 === 0 ? i + 1 : '')}</span>`).join('');
+        chart.innerHTML = `<div class="chart">${bars}</div><div class="chart-labels">${labels}</div>`;
+      }
+
+      // By customer
+      const by = {};
+      list.forEach(l => { const k = l.custName || 'General / Unassigned'; by[k] = by[k] || { h: 0, e: 0 }; by[k].h += l.hours || 0; by[k].e += l.earnings || 0; });
+      const rows = Object.entries(by).sort((a, b) => b[1].e - a[1].e);
+      $('sum-by-cust').innerHTML = rows.length
+        ? rows.map(([k, v]) => `<div class="up-row"><span>${esc(k)}</span><span class="r">${v.h.toFixed(1)}h · ${money(v.e)}</span></div>`).join('')
+        : '<div class="empty" style="padding: 8px 0;">No time logged in this period.</div>';
+    }
+
+    const csvCell = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    async function exportTimesheet() {
+      const rows = logsInRange(sumRange).sort((a, b) => logTime(a) - logTime(b));
+      if (!rows.length) { toast('No time logged in this period'); return; }
+      const out = [['Date', 'Customer', 'Hours', 'Break (min)', 'Rate', 'Earnings', 'Notes'].join(',')];
+      rows.forEach(l => {
+        const h = l.hours || 0;
+        out.push([isoDate(logTime(l)), l.custName, h.toFixed(2), l.breaks || 0, h > 0 ? ((l.earnings || 0) / h).toFixed(2) : '', (l.earnings || 0).toFixed(2), l.notes || ''].map(csvCell).join(','));
+      });
+      out.push(['Total', '', rows.reduce((s, l) => s + (l.hours || 0), 0).toFixed(2), '', '', rows.reduce((s, l) => s + (l.earnings || 0), 0).toFixed(2), ''].join(','));
+      const res = await shareOrDownload(`UpholsteryMate-timesheet-${sumRange}-${isoDate(Date.now())}.csv`, 'text/csv', '\ufeff' + out.join('\r\n'), 'Timesheet');
+      if (res === 'failed') toast('Couldn\'t create the timesheet file');
+      else if (res === 'downloaded') toast('Timesheet downloaded');
+    }
+
+    /* ================= Backup & restore ================= */
+    async function exportBackup() {
+      const payload = { app: 'UpholsteryMate', format: 2, exportedAt: new Date().toISOString(), customers, logs, settings };
+      if (settings.backupPhotos) {
+        toast('Preparing photos…');
+        try {
+          payload.photos = [];
+          for (const r of await photosAll()) payload.photos.push({ id: r.id, jobId: r.jobId, kind: r.kind, ts: r.ts, data: await blobToDataURL(r.blob) });
+        } catch (e) { payload.photos = undefined; toast('Couldn\'t read the photos, so this backup has none'); }
+      }
+      const res = await shareOrDownload(`UpholsteryMate-backup-${isoDate(Date.now())}.json`, 'application/json', JSON.stringify(payload, null, payload.photos ? 0 : 2), 'UpholsteryMate backup');
+      if (res === 'cancelled') return;
+      if (res === 'failed') { toast('Couldn\'t create the backup file'); return; }
+      settings.lastBackup = Date.now();
+      saveAll();
+      renderBackupStatus();
+      toast('Backup created');
+    }
+
+    function importBackup(input) {
+      const file = input.files && input.files[0];
+      input.value = '';   // so the same file can be chosen again
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onerror = () => toast('Couldn\'t read that file');
+      reader.onload = async () => {
+        let data;
+        try { data = JSON.parse(reader.result); } catch (e) { toast('That isn\'t a valid backup file'); return; }
+        if (!data || data.app !== 'UpholsteryMate' || !Array.isArray(data.customers) || !Array.isArray(data.logs)) { toast('That isn\'t an UpholsteryMate backup'); return; }
+        if (timer.running) { toast('Stop the timer first'); return; }
+        const cs = data.customers.filter(c => c && c.id != null && c.name).map(c => Object.assign({}, c, { id: String(c.id) }));
+        const ls = data.logs.filter(l => l && l.id != null).map(l => Object.assign({}, l, { id: String(l.id) }));
+        const ps = Array.isArray(data.photos) ? data.photos.filter(p => p && p.id && p.jobId && p.data) : null;
+        const when = data.exportedAt ? fmtDate(data.exportedAt) : 'an unknown date';
+        const msg = `Replace everything on this phone with the backup from ${when}? It contains ${cs.length} job(s), ${ls.length} time log(s)${ps ? ' and ' + ps.length + ' photo(s)' : ''}.`;
+        if (!(await askConfirm(msg, 'Restore', 'Restore backup'))) return;
+        customers = cs;
+        logs = ls;
+        if (data.settings && typeof data.settings === 'object') settings = Object.assign({ currency: '£', rate: 35 }, data.settings);
+        mapDirty = true;
+        saveAll();
+        applySettings(); renderCustomerDropdowns(); renderCustomerList(); renderOverviewLogs(); renderTimer();
+        try {
+          if (ps) {
+            await photosClear();
+            for (const p of ps) await photoAdd({ id: String(p.id), jobId: String(p.jobId), kind: p.kind === 'after' ? 'after' : 'before', ts: p.ts || Date.now(), blob: dataURLToBlob(p.data) });
+          } else {
+            await photosPruneTo(new Set(cs.map(c => c.id)));   // drop photos of jobs that no longer exist
+          }
+        } catch (e) { toast('Restored, but the photos couldn\'t be restored'); refreshPhotoCounts(); return; }
+        refreshPhotoCounts();
+        toast('Backup restored');
+      };
+      reader.readAsText(file);
+    }
+
+    function onBackupPhotosChange() { settings.backupPhotos = $('backup-photos').checked; saveAll(); }
+
+    function renderBackupStatus() {
+      $('backup-status').textContent = settings.lastBackup ? 'Last backup: ' + fmtDate(settings.lastBackup) : 'No backup made yet.';
+    }
+
     async function resetDemoData() {
       if (timer.running) { toast('Stop the timer first'); return; }
       if (!(await askConfirm('Replace your customers with the demo set? Time logs are kept.', 'Restore demo', 'Reset demo data'))) return;
@@ -1079,7 +1589,25 @@
 
     function mapsLinks(c) {
       const q = c.lat && c.lng ? `${c.lat},${c.lng}` : encodeURIComponent(c.address || c.name);
-      return { apple: `https://maps.apple.com/?q=${q}`, google: `https://www.google.com/maps/search/?api=1&query=${q}` };
+      // Links open turn-by-turn directions to the job
+      return { apple: `https://maps.apple.com/?daddr=${q}&dirflg=d`, google: `https://www.google.com/maps/dir/?api=1&destination=${q}` };
+    }
+
+    function directionsUrl(c) {
+      const l = mapsLinks(c);
+      return /iPhone|iPad|Macintosh/.test(navigator.userAgent) ? l.apple : l.google;
+    }
+
+    // Call / Text / Directions buttons on a customer card
+    function contactRow(c) {
+      const parts = [];
+      if (c.phone) {
+        const num = esc(c.phone.replace(/[^0-9+]/g, ''));
+        parts.push(`<a class="btn-action-sm" href="tel:${num}">📞 Call</a>`);
+        parts.push(`<a class="btn-action-sm" href="sms:${num}">💬 Text</a>`);
+      }
+      if ((c.lat && c.lng) || c.address) parts.push(`<a class="btn-action-sm" href="${esc(directionsUrl(c))}" target="_blank" rel="noopener">🧭 Directions</a>`);
+      return parts.length ? `<div class="job-card-contact">${parts.join('')}</div>` : '';
     }
 
     function showMapFallback(reason) {
