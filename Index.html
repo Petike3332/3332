@@ -175,12 +175,18 @@
     .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
     .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: #eee; cursor: pointer; }
     .photo-empty { grid-column: 1 / -1; font-size: 13px; color: var(--text-sub); padding: 6px 0; }
-    .photo-viewer { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.92); z-index: 2400; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
+    .photo-viewer { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.92); z-index: 3000; overflow: auto; -webkit-overflow-scrolling: touch; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
     .photo-viewer.active { display: flex; }
     .photo-viewer img { max-width: 100%; max-height: 72vh; border-radius: 8px; }
     .viewer-caption { color: #fff; font-size: 13px; margin: 12px 0; }
     .viewer-actions { display: flex; gap: 10px; }
     .viewer-actions button { border: none; border-radius: 12px; padding: 12px 22px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .photo-viewer img { cursor: zoom-in; }
+    .photo-viewer.zoomed { align-items: flex-start; justify-content: flex-start; }
+    .photo-viewer.zoomed img { max-width: none; max-height: none; width: 220vw; cursor: zoom-out; }
+    .js-hint { font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; color: #888; margin-left: 6px; }
+    #jobsheet-body img { cursor: zoom-in; }
+    @media print { .js-hint { display: none; } }
     .status-pill { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .status-pill.new { background: var(--status-new-bg); color: var(--status-new-txt); }
     .status-pill.progress { background: var(--status-prog-bg); color: var(--status-prog-txt); }
@@ -234,7 +240,7 @@
     .log-earn { background: #eef5ff; font-weight: 700; color: var(--primary-green); min-height: 46px; }
 
     /* Toast */
-    #toast { position: fixed; left: 50%; bottom: calc(var(--nav-height) + 16px); transform: translateX(-50%); background: rgba(28,28,30,0.92); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 3000; max-width: 88%; text-align: center; }
+    #toast { position: fixed; left: 50%; bottom: calc(var(--nav-height) + 16px); transform: translateX(-50%); background: rgba(28,28,30,0.92); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 3400; max-width: 88%; text-align: center; }
     #toast.show { opacity: 1; }
   </style>
 </head>
@@ -428,7 +434,9 @@
         <button style="width: 100%; background: #ffe5e5; color: #ff3b30; border: none; border-radius: 14px; padding: 14px; font-weight: 700; cursor: pointer;" onclick="resetDemoData()">
           Reset Demo Data & Customer Pins
         </button>
-        <div style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 14px;">Version 11 · map: OpenStreetMap</div>
+        <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)">🔄 Check for updates</button>
+        <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 12 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -573,7 +581,7 @@
   <div id="jobsheet">
     <div class="js-bar">
       <button type="button" style="background: #e5e5ea;" onclick="closeJobSheet()">Close</button>
-      <button type="button" style="background: #007aff; color: #fff;" onclick="printJobSheet()">🖨️ Print / Save PDF</button>
+      <button type="button" style="background: #007aff; color: #fff;" onclick="printJobSheet()">📄 Save / Print PDF</button>
     </div>
     <div id="jobsheet-body"></div>
   </div>
@@ -598,16 +606,16 @@
   </div>
 
   <div class="photo-viewer" id="photo-viewer">
-    <img id="viewer-img" alt="">
+    <img id="viewer-img" alt="" onclick="toggleViewerZoom()">
     <div class="viewer-caption" id="viewer-caption"></div>
     <div class="viewer-actions">
       <button type="button" style="background: #e5e5ea;" onclick="closeViewer()">Close</button>
-      <button type="button" style="background: #ff3b30; color: #fff;" onclick="deleteViewedPhoto()">Delete</button>
+      <button type="button" id="viewer-delete" style="background: #ff3b30; color: #fff;" onclick="deleteViewedPhoto()">Delete</button>
     </div>
   </div>
 
   <!-- In-page confirm dialog (native confirm() is blocked in some viewers) -->
-  <div class="modal-backdrop" id="confirm-modal" style="z-index: 2500;" onclick="if(event.target===this)resolveConfirm(false)">
+  <div class="modal-backdrop" id="confirm-modal" style="z-index: 3200;" onclick="if(event.target===this)resolveConfirm(false)">
     <div class="modal-sheet">
       <div class="modal-header">
         <h2 id="confirm-title">Are you sure?</h2>
@@ -619,6 +627,8 @@
       </div>
     </div>
   </div>
+
+  <div id="update-banner" onclick="applyUpdate()" style="display: none; position: fixed; left: 12px; right: 12px; top: calc(76px + env(safe-area-inset-top)); z-index: 1500; background: #007aff; color: #fff; padding: 12px; border-radius: 12px; text-align: center; font-weight: 600; font-size: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.25); cursor: pointer;">🔄 New version available — tap to update</div>
 
   <div id="toast"></div>
 
@@ -1187,6 +1197,7 @@
       $('currency-pill').textContent = `${settings.currency} (${CURRENCY_CODES[settings.currency] || ''})`;
       renderBackupStatus();
       $('backup-photos').checked = !!settings.backupPhotos;
+      $('version-line').textContent = 'Version ' + APP_VERSION + ' · map: OpenStreetMap';
     }
     function onCurrencyChange() {
       settings.currency = $('setting-currency').value;
@@ -1196,8 +1207,227 @@
       const r = parseFloat($('setting-rate').value);
       if (isFinite(r) && r >= 0) { settings.rate = r; saveAll(); renderClock(); }
     }
+    /* ================= PDF job sheet (one A4 page, no external libraries) ================= */
+    const PDF_W = 595.28, PDF_H = 841.89;
+    // Helvetica character widths for ASCII 32..126 (per 1000 units)
+    const HELV_W = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+    const HELV_B_W = [278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+    const WINANSI = { '€': 0x80, '‚': 0x82, 'ƒ': 0x83, '„': 0x84, '…': 0x85, '†': 0x86, '‡': 0x87, 'ˆ': 0x88, '‰': 0x89, 'Š': 0x8A, '‹': 0x8B, 'Œ': 0x8C, 'Ž': 0x8E, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '•': 0x95, '–': 0x96, '—': 0x97, '˜': 0x98, '™': 0x99, 'š': 0x9A, '›': 0x9B, 'œ': 0x9C, 'ž': 0x9E, 'Ÿ': 0x9F };
+
+    // Text -> Windows-1252 byte values (emoji and unsupported symbols are dropped)
+    function pdfWinAnsi(str) {
+      const out = [];
+      for (const ch of String(str == null ? '' : str)) {
+        const cp = ch.codePointAt(0);
+        if (cp === 9 || cp === 10 || cp === 13) out.push(32);
+        else if (cp >= 32 && cp < 127) out.push(cp);
+        else if (cp >= 160 && cp <= 255) out.push(cp);
+        else if (WINANSI[ch] !== undefined) out.push(WINANSI[ch]);
+        else if (cp >= 0x2190 || cp === 0x200D || cp === 0xFE0F) continue;
+        else out.push(63);
+      }
+      return out;
+    }
+    function pdfWidth(str, size, bold) {
+      const table = bold ? HELV_B_W : HELV_W;
+      return pdfWinAnsi(str).reduce((s, b) => s + (b >= 32 && b <= 126 ? table[b - 32] : 556), 0) * size / 1000;
+    }
+
+    // Reads the size of a JPEG straight from its bytes
+    function jpegInfo(b) {
+      if (!b || b[0] !== 0xFF || b[1] !== 0xD8) return null;
+      let i = 2;
+      while (i + 9 < b.length) {
+        if (b[i] !== 0xFF) { i++; continue; }
+        const m = b[i + 1];
+        if (m === 0xFF) { i++; continue; }
+        if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) {
+          return { h: (b[i + 5] << 8) | b[i + 6], w: (b[i + 7] << 8) | b[i + 8], comps: b[i + 9] };
+        }
+        i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+      }
+      return null;
+    }
+
+    async function buildJobPdf(c, recs, jl) {
+      const ops = [], images = [];
+      const M = 34, W = PDF_W - 2 * M;
+      const GREY = [102, 102, 102], BLUE = [0, 122, 255], INK = [17, 17, 17], EDGE = [190, 190, 197], SHADE = [243, 243, 248];
+      const Y = y => (PDF_H - y).toFixed(2), f = n => Number(n).toFixed(2);
+      const hex = s => '<' + pdfWinAnsi(s).map(b => b.toString(16).padStart(2, '0')).join('') + '>';
+      const col = (rgb, stroke) => rgb.map(v => (v / 255).toFixed(3)).join(' ') + (stroke ? ' RG' : ' rg');
+      const text = (x, base, s, size, bold, rgb) => { ops.push(`BT ${col(rgb || INK)} /${bold ? 'F2' : 'F1'} ${size} Tf ${f(x)} ${Y(base)} Td ${hex(s)} Tj ET`); };
+      const box = (x, top, w, h, fill, stroke, lw) => {
+        ops.push(`q ${fill ? col(fill) + ' ' : ''}${stroke ? col(stroke, true) + ' ' + (lw || 0.5) + ' w ' : ''}${f(x)} ${Y(top + h)} ${f(w)} ${f(h)} re ${fill && stroke ? 'B' : fill ? 'f' : 'S'} Q`);
+      };
+      const hline = (x1, x2, top, rgb, lw) => { ops.push(`q ${col(rgb, true)} ${lw} w ${f(x1)} ${Y(top)} m ${f(x2)} ${Y(top)} l S Q`); };
+      const tw = pdfWidth;
+      const fit = (s, maxW, size, bold) => {
+        s = String(s || '');
+        if (tw(s, size, bold) <= maxW) return s;
+        while (s.length > 1 && tw(s + '…', size, bold) > maxW) s = s.slice(0, -1);
+        return s + '…';
+      };
+      const wrap = (s, maxW, size, bold, maxLines) => {
+        const lines = [];
+        for (const para of String(s || '').split(/\r?\n/)) {
+          let cur = '';
+          for (let word of para.split(/\s+/).filter(Boolean)) {
+            while (tw(word, size, bold) > maxW) {
+              let k = word.length;
+              while (k > 1 && tw(word.slice(0, k), size, bold) > maxW) k--;
+              if (cur) { lines.push(cur); cur = ''; }
+              lines.push(word.slice(0, k)); word = word.slice(k);
+            }
+            const t = cur ? cur + ' ' + word : word;
+            if (tw(t, size, bold) <= maxW) cur = t; else { lines.push(cur); cur = word; }
+          }
+          lines.push(cur);
+        }
+        if (maxLines && lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = fit(lines[maxLines - 1] + '…', maxW, size, bold); }
+        return lines.length ? lines : [''];
+      };
+      const heading = (x, y, w, s) => { text(x, y + 9, s, 8.5, true); hline(x, x + w, y + 13, INK, 1); };
+
+      // ---- Header ----
+      let y = M;
+      text(M, y + 13, 'UpholsteryMate', 15, true, BLUE);
+      text(M, y + 25, 'Job sheet', 8.5, false, GREY);
+      const printed = 'Printed ' + fmtDate(Date.now());
+      text(PDF_W - M - tw(printed, 8.5, false), y + 13, printed, 8.5, false, GREY);
+      hline(M, PDF_W - M, y + 31, BLUE, 2);
+      y += 42;
+      text(M, y + 15, fit(c.name, W, 19, true), 19, true);
+      y += 22;
+      text(M, y + 11, fit(c.project, W, 11.5, true), 11.5, true, BLUE);
+      y += 19;
+
+      // ---- Customer details ----
+      const LW = 112, dash = '—';
+      const info = [
+        ['Status', c.status], ['Phone', c.phone || dash], ['Address', c.address || dash],
+        ['Collection date', c.collectDate ? longDay(c.collectDate) : dash],
+        ['Due / delivery date', c.deliverDate ? longDay(c.deliverDate) : dash],
+        ['Notes / fabric specs', c.notes || dash]
+      ];
+      info.forEach(([k, v], i) => {
+        const lines = wrap(v, W - LW - 12, 9, i === 0, i === 5 ? 4 : 2);
+        const h = lines.length * 11.5 + 6;
+        box(M, y, LW, h, SHADE, EDGE);
+        box(M + LW, y, W - LW, h, null, EDGE);
+        text(M + 6, y + 12, k, 8.5, true);
+        lines.forEach((ln, j) => text(M + LW + 6, y + 12 + j * 11.5, ln, 9, i === 0));
+        y += h;
+      });
+      y += 12;
+
+      // ---- Time & earnings ----
+      heading(M, y, W, 'TIME & EARNINGS');
+      y += 19;
+      const cols = [{ t: 'Date', w: 88 }, { t: 'Hours', w: 50, r: 1 }, { t: 'Break', w: 56, r: 1 }, { t: 'Earned', w: 74, r: 1 }, { t: 'Notes', w: W - 268 }];
+      const cell = (i, x, top, h, s, bold, fill) => {
+        const cc = cols[i];
+        box(x, top, cc.w, h, fill || null, EDGE);
+        const t = fit(s, cc.w - 10, 8.5, bold);
+        text(cc.r ? x + cc.w - 5 - tw(t, 8.5, bold) : x + 5, top + 10.5, t, 8.5, bold);
+      };
+      const rowOf = (vals, top, bold, fill) => { let x = M; vals.forEach((v, i) => { cell(i, x, top, 15, v, bold, fill); x += cols[i].w; }); };
+      if (jl.length) {
+        rowOf(cols.map(cc => cc.t), y, true, SHADE); y += 15;
+        const MAXROWS = 8, shown = jl.slice(-MAXROWS), hidden = jl.length - shown.length;
+        if (hidden > 0) { text(M + 5, y + 10.5, `… ${hidden} earlier ${hidden === 1 ? 'entry' : 'entries'} not listed (included in the total)`, 8, false, GREY); y += 15; }
+        shown.forEach(l => {
+          rowOf([logTime(l) ? fmtDate(logTime(l)) : l.date, (l.hours || 0).toFixed(2), (l.breaks || 0) + ' min', money(l.earnings), l.notes || ''], y, false);
+          y += 15;
+        });
+        const th = jl.reduce((s, l) => s + (l.hours || 0), 0), te = jl.reduce((s, l) => s + (l.earnings || 0), 0);
+        rowOf(['Total', th.toFixed(2), '', money(te), ''], y, true, SHADE); y += 15;
+      } else {
+        text(M, y + 9, 'No time logged for this job yet.', 9, false, GREY); y += 14;
+      }
+      y += 12;
+
+      // ---- Before / After photos ----
+      const NOTES_H = 88, notesTop = PDF_H - M - NOTES_H;
+      const GAP_COL = 14, colW = (W - GAP_COL) / 2, photoTop = y + 20, avail = Math.max(40, notesTop - 16 - photoTop), g = 5;
+      // Pick the number of columns that gives the biggest photos while keeping everything on this page
+      const grid = (n) => {
+        let best = null;
+        for (let cs = 1; cs <= 4; cs++) {
+          const cw = (colW - (cs - 1) * g) / cs, rows = Math.ceil(n / cs);
+          const ch = Math.min(cw * 0.8, (avail - (rows - 1) * g) / rows);
+          if (ch < cw * 0.5) continue;
+          if (!best || cw * ch > best.area) best = { cs, cw, ch, cap: n, area: cw * ch };
+        }
+        if (best) return best;
+        const cw = (colW - 3 * g) / 4, ch = cw * 0.75;
+        return { cs: 4, cw, ch, cap: Math.max(1, Math.floor((avail + g) / (ch + g))) * 4 };
+      };
+      for (let k = 0; k < 2; k++) {
+        const kind = k === 0 ? 'before' : 'after', x0 = M + k * (colW + GAP_COL);
+        heading(x0, y, colW, kind.toUpperCase());
+        const items = [];
+        for (const r of recs.filter(r => r.kind === kind)) {
+          try {
+            const bytes = new Uint8Array(await r.blob.arrayBuffer());
+            const inf = jpegInfo(bytes);
+            if (inf) items.push({ bytes, w: inf.w, h: inf.h, comps: inf.comps });
+          } catch (e) { /* skip unreadable photo */ }
+        }
+        if (!items.length) { text(x0, photoTop + 9, 'No photos', 9, false, GREY); continue; }
+        const L = grid(items.length);
+        items.slice(0, L.cap).forEach((it, i) => {
+          const x = x0 + (i % L.cs) * (L.cw + g), top = photoTop + Math.floor(i / L.cs) * (L.ch + g);
+          box(x, top, L.cw, L.ch, SHADE, EDGE, 0.5);
+          const s = Math.min((L.cw - 2) / it.w, (L.ch - 2) / it.h), dw = it.w * s, dh = it.h * s;
+          images.push(it);
+          ops.push(`q ${f(dw)} 0 0 ${f(dh)} ${f(x + (L.cw - dw) / 2)} ${Y(top + (L.ch - dh) / 2 + dh)} cm /Im${images.length} Do Q`);
+        });
+        if (items.length > L.cap) {
+          const rows = Math.ceil(L.cap / L.cs);
+          text(x0, photoTop + rows * (L.ch + g) + 8, `+ ${items.length - L.cap} more photo${items.length - L.cap === 1 ? '' : 's'} in the app`, 8, false, GREY);
+        }
+      }
+
+      // ---- Workshop notes + signature ----
+      heading(M, notesTop, W, 'WORKSHOP NOTES');
+      hline(M, PDF_W - M, notesTop + 36, EDGE, 0.6);
+      hline(M, PDF_W - M, notesTop + 54, EDGE, 0.6);
+      const sy = notesTop + NOTES_H - 14;
+      hline(M, M + W * 0.62, sy, INK, 0.8);
+      text(M, sy + 10, 'Customer signature', 8, false, GREY);
+      hline(M + W * 0.68, PDF_W - M, sy, INK, 0.8);
+      text(M + W * 0.68, sy + 10, 'Date', 8, false, GREY);
+
+      // ---- Assemble the PDF file ----
+      const enc = new TextEncoder();
+      const chunks = [new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A])];
+      let offset = chunks[0].length;
+      const offsets = [];
+      const push = d => { const b = typeof d === 'string' ? enc.encode(d) : d; chunks.push(b); offset += b.length; };
+      const obj = (n, parts) => { offsets[n] = offset; push(`${n} 0 obj\n`); parts.forEach(push); push('\nendobj\n'); };
+      const content = enc.encode(ops.join('\n'));
+      const imgRefs = images.map((_, i) => `/Im${i + 1} ${7 + i} 0 R`).join(' ');
+      obj(1, ['<< /Type /Catalog /Pages 2 0 R >>']);
+      obj(2, ['<< /Type /Pages /Kids [3 0 R] /Count 1 >>']);
+      obj(3, [`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PDF_W} ${PDF_H}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> /XObject << ${imgRefs} >> >> /Contents 6 0 R >>`]);
+      obj(4, ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>']);
+      obj(5, ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>']);
+      obj(6, [`<< /Length ${content.length} >>\nstream\n`, content, '\nendstream']);
+      images.forEach((im, i) => {
+        const cs = im.comps === 1 ? '/DeviceGray' : im.comps === 4 ? '/DeviceCMYK' : '/DeviceRGB';
+        obj(7 + i, [`<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.bytes.length} >>\nstream\n`, im.bytes, '\nendstream']);
+      });
+      const total = 7 + images.length;
+      const xref = offset;
+      push(`xref\n0 ${total}\n0000000000 65535 f \n`);
+      for (let n = 1; n < total; n++) push(String(offsets[n]).padStart(10, '0') + ' 00000 n \n');
+      push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+      return new Blob(chunks, { type: 'application/pdf' });
+    }
+
     /* ================= Job sheet (printable) ================= */
-    let sheetURLs = [];
+    let sheetURLs = [], sheetPdfPromise = null, sheetPdfName = 'JobSheet.pdf';
     function longDay(dateStr) {
       const [y, m, d] = dateStr.split('-').map(Number);
       return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
@@ -1223,7 +1453,7 @@
         return '<div class="js-photos">' + mine.map(r => {
           const u = URL.createObjectURL(r.blob);
           sheetURLs.push(u);
-          return `<figure><img src="${u}" alt="${kind} photo"><figcaption>${esc(fmtDate(r.ts))}</figcaption></figure>`;
+          return `<figure><img src="${u}" alt="${kind === 'after' ? 'After' : 'Before'} · ${esc(fmtDate(r.ts))}" onclick="openSheetImage(this)"><figcaption>${esc(fmtDate(r.ts))}</figcaption></figure>`;
         }).join('') + '</div>';
       };
 
@@ -1247,9 +1477,9 @@
         </table>
         <h2>Time &amp; earnings</h2>
         ${logTable}
-        <h2>Before</h2>
+        <h2>Before<span class="js-hint">tap a photo to enlarge</span></h2>
         ${photos('before')}
-        <h2>After</h2>
+        <h2>After<span class="js-hint">tap a photo to enlarge</span></h2>
         ${photos('after')}
         <div class="js-keep">
           <h2>Workshop notes</h2>
@@ -1259,20 +1489,76 @@
 
       $('jobsheet').classList.add('active');
       $('jobsheet').scrollTop = 0;
+
+      // Build the one-page A4 PDF in the background so the button responds instantly
+      sheetPdfName = `JobSheet-${c.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'job'}-${isoDate(Date.now())}.pdf`;
+      sheetPdfPromise = buildJobPdf(c, recs, jl);
+      sheetPdfPromise.catch(() => {});
     }
 
     function closeJobSheet() {
+      closeViewer();
+      sheetPdfPromise = null;
       $('jobsheet').classList.remove('active');
       $('jobsheet-body').innerHTML = '';
       sheetURLs.forEach(u => URL.revokeObjectURL(u)); sheetURLs = [];
     }
 
+    // Makes a real one-page A4 PDF and opens the share sheet (Save to Files, Print, AirDrop, Mail...)
     async function printJobSheet() {
-      // Make sure the photos are ready before the print preview is taken
-      const imgs = Array.from(document.querySelectorAll('#jobsheet img'));
-      await Promise.all(imgs.map(i => (i.decode ? i.decode().catch(() => {}) : Promise.resolve())));
-      try { window.print(); } catch (e) { toast('Printing isn\'t available here. Open the app in Safari and try again.'); }
+      if (!sheetPdfPromise) return;
+      toast('Preparing PDF…');
+      let blob;
+      try { blob = await sheetPdfPromise; } catch (e) { toast('Couldn\'t create the PDF'); return; }
+      const res = await shareOrDownload(sheetPdfName, 'application/pdf', blob, 'Job sheet');
+      if (res === 'failed') toast('Couldn\'t save the PDF');
+      else if (res === 'downloaded') toast('PDF downloaded. Open it from Files to print.');
     }
+
+    /* ================= Auto-update ================= */
+    // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
+    const APP_VERSION = 12;
+    let updateVersion = null, lastUpdateCheck = 0;
+
+    async function fetchLatestVersion() {
+      const res = await fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const m = (await res.text()).match(/const APP_VERSION = (\d+);/);
+      return m ? parseInt(m[1], 10) : null;
+    }
+
+    // manual: from the Settings button. auto: allowed to reload the app by itself.
+    async function checkForUpdate(manual, auto) {
+      const status = $('update-status');
+      if (manual) status.textContent = 'Checking…';
+      lastUpdateCheck = Date.now();
+      try {
+        if (!/^https?:$/.test(location.protocol)) throw new Error('not online');
+        const latest = await fetchLatestVersion();
+        if (latest && latest > APP_VERSION) {
+          updateVersion = latest;
+          let tried = false;
+          try { tried = sessionStorage.getItem('um_upd') === String(latest); } catch (e) { /* ignore */ }
+          if (manual) { status.textContent = `Updating to version ${latest}…`; applyUpdate(); return; }
+          if (auto && !tried && !timer.running) { applyUpdate(); return; }
+          $('update-banner').style.display = 'block';
+        } else if (manual) {
+          status.textContent = `You're up to date (version ${APP_VERSION}).`;
+        }
+      } catch (e) {
+        if (manual) status.textContent = 'Couldn\'t check right now. Check your connection and try again.';
+      }
+    }
+
+    function applyUpdate() {
+      const v = updateVersion || Date.now();
+      try { sessionStorage.setItem('um_upd', String(v)); } catch (e) { /* ignore */ }
+      location.replace(location.pathname + '?v=' + v);   // a new address, so the phone can't reuse its saved copy
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Date.now() - lastUpdateCheck > 30 * 60 * 1000) checkForUpdate(false, false);
+    });
 
     /* ================= Files: share sheet or download ================= */
     async function shareOrDownload(name, type, content, title) {
@@ -1444,10 +1730,22 @@
       if (!r) return;
       photoViewId = id;
       $('viewer-img').src = photoUrlById[id];
-      $('viewer-caption').textContent = (r.kind === 'after' ? 'After' : 'Before') + ' · ' + fmtDate(r.ts);
+      $('viewer-caption').textContent = (r.kind === 'after' ? 'After' : 'Before') + ' · ' + fmtDate(r.ts) + ' · tap photo to zoom';
+      $('viewer-delete').style.display = '';
+      $('photo-viewer').classList.remove('zoomed');
       $('photo-viewer').classList.add('active');
     }
-    function closeViewer() { $('photo-viewer').classList.remove('active'); photoViewId = null; }
+    // Full-size view of a photo on the job sheet (no delete button there)
+    function openSheetImage(img) {
+      photoViewId = null;
+      $('viewer-img').src = img.src;
+      $('viewer-caption').textContent = (img.alt || 'Photo') + ' · tap photo to zoom';
+      $('viewer-delete').style.display = 'none';
+      $('photo-viewer').classList.remove('zoomed');
+      $('photo-viewer').classList.add('active');
+    }
+    function toggleViewerZoom() { $('photo-viewer').classList.toggle('zoomed'); }
+    function closeViewer() { $('photo-viewer').classList.remove('zoomed'); $('photo-viewer').classList.remove('active'); photoViewId = null; }
     async function deleteViewedPhoto() {
       const id = photoViewId;
       if (!id) return;
@@ -1924,6 +2222,7 @@
     renderCustomerList();
     renderOverviewLogs();
     renderTimer();
+    setTimeout(() => checkForUpdate(false, true), 800);   // look for a newer version each time the app opens
   </script>
 </body>
 </html>
