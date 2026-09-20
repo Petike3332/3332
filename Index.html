@@ -197,7 +197,14 @@
     .timer-top .stopped-pill { margin-bottom: 0; }
     .timer-top-l { text-align: left; }
     .timer-top-r { text-align: right; line-height: 1.15; }
-    .wall-clock { display: inline-block; background: var(--danger-bg); color: var(--danger-txt); border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    /* Wall clock: neutral by default, matching the status badge. Red stays reserved for alerts. */
+    .wall-clock { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-3); color: var(--text-sub); border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .wall-clock .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.35; }
+    /* Only while a shift is running does it pick up a subtle green */
+    .wall-clock.live { background: var(--status-prog-bg); color: var(--status-prog-txt); }
+    .wall-clock.live .dot { opacity: 1; animation: clockPulse 2s ease-in-out infinite; }
+    @keyframes clockPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    @media (prefers-reduced-motion: reduce) { .wall-clock.live .dot { animation: none; } }
     .tt-label { font-size: 10px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.4px; }
     .tt-val { font-size: 13px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
     .stopped-pill.running { background: var(--status-prog-bg); color: var(--status-prog-txt); }
@@ -458,7 +465,7 @@
       <h1 class="large-title">Timer<span class="lt-sub">Track a shift against the job</span></h1>
       <div class="card" style="text-align: center;">
         <div class="timer-top">
-          <div class="timer-top-l"><span class="wall-clock" id="wall-clock" title="Current time">--:--</span></div>
+          <div class="timer-top-l"><span class="wall-clock" id="wall-clock" title="Current time"><span class="dot"></span><span id="wall-clock-time">--:--</span></span></div>
           <span class="stopped-pill" id="timer-status-pill">• Stopped</span>
           <div class="timer-top-r"><div class="tt-label">Worked today</div><div class="tt-val" id="timer-today-worked">00:00:00</div></div>
         </div>
@@ -706,7 +713,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.5h-4.5"/></svg>Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 29 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 30 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -1269,7 +1276,9 @@
     // Red live wall clock (24-hour, local time)
     function renderWallClock() {
       const d = new Date();
-      $('wall-clock').textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+      $('wall-clock-time').textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes());   // HH:mm only, so it never flickers
+      // Green only while the shift is actually running (not while paused)
+      $('wall-clock').classList.toggle('live', timer.running && !timer.onBreak);
     }
 
     function renderOverviewLogs() {
@@ -2053,7 +2062,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 29;
+    const APP_VERSION = 30;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
