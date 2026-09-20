@@ -153,8 +153,6 @@
     .js-card.profit { background: #e4f6ea; border: 2px solid #168c3c; }
     .js-card.profit .k, .js-card.profit .v { color: #168c3c; }
     .js-lines div { border-bottom: 1px solid #999; height: 30px; }
-    .js-sign { width: 100%; border-collapse: collapse; margin-top: 34px; }
-    .js-sign td { border-top: 1px solid #333; padding-top: 4px; font-size: 12px; color: #444; }
     @media print {
       @page { size: A4; margin: 14mm; }
       html, body { height: auto !important; overflow: visible !important; background: #fff !important; display: block !important; }
@@ -473,7 +471,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)">🔄 Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 19 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 20 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -1464,9 +1462,9 @@
       y += 12;
 
       // ---- Time & earnings ----
-      heading(M, y, W, 'TIME & EARNINGS');
+      heading(M, y, W, 'TIME LOGGED');
       y += 19;
-      const cols = [{ t: 'Date', w: 88 }, { t: 'Hours', w: 50, r: 1 }, { t: 'Break', w: 56, r: 1 }, { t: 'Earned', w: 74, r: 1 }, { t: 'Notes', w: W - 268 }];
+      const cols = [{ t: 'Date', w: 88 }, { t: 'Hours', w: 50, r: 1 }, { t: 'Break', w: 56, r: 1 }, { t: 'Notes', w: W - 194 }];
       const cell = (i, x, top, h, s, bold, fill) => {
         const cc = cols[i];
         box(x, top, cc.w, h, fill || null, EDGE);
@@ -1479,11 +1477,11 @@
         const MAXROWS = 8, shown = jl.slice(-MAXROWS), hidden = jl.length - shown.length;
         if (hidden > 0) { text(M + 5, y + 10.5, `… ${hidden} earlier ${hidden === 1 ? 'entry' : 'entries'} not listed (included in the total)`, 8, false, GREY); y += 15; }
         shown.forEach(l => {
-          rowOf([logTime(l) ? fmtDate(logTime(l)) : l.date, (l.hours || 0).toFixed(2), (l.breaks || 0) + ' min', money(l.earnings), l.notes || ''], y, false);
+          rowOf([logTime(l) ? fmtDate(logTime(l)) : l.date, (l.hours || 0).toFixed(2), (l.breaks || 0) + ' min', l.notes || ''], y, false);
           y += 15;
         });
-        const th = jl.reduce((s, l) => s + (l.hours || 0), 0), te = jl.reduce((s, l) => s + (l.earnings || 0), 0);
-        rowOf(['Total', th.toFixed(2), '', money(te), ''], y, true, SHADE); y += 15;
+        const th = jl.reduce((s, l) => s + (l.hours || 0), 0);
+        rowOf(['Total', th.toFixed(2), '', ''], y, true, SHADE); y += 15;
       } else {
         text(M, y + 9, 'No time logged for this job yet.', 9, false, GREY); y += 14;
       }
@@ -1508,7 +1506,7 @@
       y += bh + 12;
 
       // ---- Before / After photos ----
-      const NOTES_H = 88, notesTop = PDF_H - M - NOTES_H;
+      const NOTES_H = 74, notesTop = PDF_H - M - NOTES_H;
       const GAP_COL = 14, colW = (W - GAP_COL) / 2, photoTop = y + 20, avail = Math.max(40, notesTop - 16 - photoTop), g = 5;
       // Pick the number of columns that gives the biggest photos while keeping everything on this page
       const grid = (n) => {
@@ -1549,15 +1547,11 @@
         }
       }
 
-      // ---- Workshop notes + signature ----
+      // ---- Workshop notes (internal sheet: no customer sign-off) ----
       heading(M, notesTop, W, 'WORKSHOP NOTES');
-      hline(M, PDF_W - M, notesTop + 36, EDGE, 0.6);
-      hline(M, PDF_W - M, notesTop + 54, EDGE, 0.6);
-      const sy = notesTop + NOTES_H - 14;
-      hline(M, M + W * 0.62, sy, INK, 0.8);
-      text(M, sy + 10, 'Customer signature', 8, false, GREY);
-      hline(M + W * 0.68, PDF_W - M, sy, INK, 0.8);
-      text(M + W * 0.68, sy + 10, 'Date', 8, false, GREY);
+      hline(M, PDF_W - M, notesTop + 34, EDGE, 0.6);
+      hline(M, PDF_W - M, notesTop + 52, EDGE, 0.6);
+      hline(M, PDF_W - M, notesTop + 70, EDGE, 0.6);
 
       // ---- Assemble the PDF file ----
       const enc = new TextEncoder();
@@ -1603,7 +1597,6 @@
 
       const jl = logsForJob(c);
       const totalH = jl.reduce((s, l) => s + (l.hours || 0), 0);
-      const totalE = jl.reduce((s, l) => s + (l.earnings || 0), 0);
       const dash = '<span style="color:#999;">—</span>';
       const multi = s => s ? esc(s).replace(/\n/g, '<br>') : dash;
 
@@ -1618,9 +1611,9 @@
       };
 
       const logTable = jl.length
-        ? `<table class="js-table"><tr><th>Date</th><th class="n">Hours</th><th class="n">Break</th><th class="n">Earned</th><th>Notes</th></tr>` +
-          jl.map(l => `<tr><td>${esc(logTime(l) ? fmtDate(logTime(l)) : l.date)}</td><td class="n">${(l.hours || 0).toFixed(2)}</td><td class="n">${l.breaks || 0} min</td><td class="n">${money(l.earnings)}</td><td>${esc(l.notes || '')}</td></tr>`).join('') +
-          `<tr><td><b>Total</b></td><td class="n"><b>${totalH.toFixed(2)}</b></td><td></td><td class="n"><b>${money(totalE)}</b></td><td></td></tr></table>`
+        ? `<table class="js-table"><tr><th>Date</th><th class="n">Hours</th><th class="n">Break</th><th>Notes</th></tr>` +
+          jl.map(l => `<tr><td>${esc(logTime(l) ? fmtDate(logTime(l)) : l.date)}</td><td class="n">${(l.hours || 0).toFixed(2)}</td><td class="n">${l.breaks || 0} min</td><td>${esc(l.notes || '')}</td></tr>`).join('') +
+          `<tr><td><b>Total</b></td><td class="n"><b>${totalH.toFixed(2)}</b></td><td></td><td></td></tr></table>`
         : '<div class="js-none">No time logged for this job yet.</div>';
 
       $('jobsheet-body').innerHTML = `
@@ -1635,7 +1628,7 @@
           <tr><th>Due / delivery date</th><td>${c.deliverDate ? esc(longDay(c.deliverDate)) : dash}</td></tr>
           <tr><th>Notes / fabric specs</th><td>${multi(c.notes)}</td></tr>
         </table>
-        <h2>Time &amp; earnings</h2>
+        <h2>Time logged</h2>
         ${logTable}
         ${varianceHtml(c, jl)}
         <h2>Before<span class="js-hint">tap a photo to enlarge</span></h2>
@@ -1645,7 +1638,6 @@
         <div class="js-keep">
           <h2>Workshop notes</h2>
           <div class="js-lines"><div></div><div></div><div></div></div>
-          <table class="js-sign"><tr><td style="width:65%;">Customer signature</td><td style="width:5%;border-top:none;"></td><td>Date</td></tr></table>
         </div>`;
 
       $('jobsheet').classList.add('active');
@@ -1678,7 +1670,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 19;
+    const APP_VERSION = 20;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
