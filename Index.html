@@ -85,6 +85,13 @@
 
     /* Timer */
     .stopped-pill { display: inline-block; background: #e5e5ea; color: #636366; border-radius: 12px; padding: 4px 12px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+    .timer-top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .timer-top .stopped-pill { margin-bottom: 0; }
+    .timer-top-l { text-align: left; }
+    .timer-top-r { text-align: right; line-height: 1.15; }
+    .wall-clock { display: inline-block; background: #ffe5e5; color: #ff3b30; border-radius: 12px; padding: 4px 10px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .tt-label { font-size: 10px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.4px; }
+    .tt-val { font-size: 13px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
     .stopped-pill.running { background: #e6f9ed; color: #24b24b; }
     .stopped-pill.onbreak { background: #fff3e0; color: #c26a00; }
     .digital-clock { font-size: 50px; font-weight: 800; letter-spacing: 2px; color: #0d121c; text-align: center; margin: 8px 0 20px 0; font-variant-numeric: tabular-nums; }
@@ -278,7 +285,11 @@
     <!-- Tab 1: Timer -->
     <div id="tab-timer" class="tab-pane active">
       <div class="card" style="text-align: center;">
-        <span class="stopped-pill" id="timer-status-pill">• Stopped</span>
+        <div class="timer-top">
+          <div class="timer-top-l"><span class="wall-clock" id="wall-clock" title="Current time">--:--</span></div>
+          <span class="stopped-pill" id="timer-status-pill">• Stopped</span>
+          <div class="timer-top-r"><div class="tt-label">Worked today</div><div class="tt-val" id="timer-today-worked">00:00:00</div></div>
+        </div>
 
         <div class="digital-clock" id="timer-clock">00:00:00</div>
 
@@ -471,7 +482,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)">🔄 Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 20 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 22 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -771,7 +782,7 @@
           const now = Date.now();
           logs.unshift({
             id: String(now), custId: timer.jobId || '', custName: c ? c.name : 'General / Unassigned',
-            ts: now, date: fmtDate(now), hours: Math.round(hours * 100) / 100,
+            ts: now, date: fmtDate(now), hours: Math.round(hours * 10000) / 10000,   // keep seconds-level precision
             breaks: Math.round(brk / 60000), earnings: timer.jobId ? Math.round(hours * settings.rate * 100) / 100 : 0   // General time earns nothing
           });
           toast(timer.jobId ? 'Time log saved' : 'Time log saved (non-billable)');
@@ -928,6 +939,15 @@
       const rev = today.reduce((s, l) => s + earnOf(l), 0) + (timer.running && timer.jobId ? (workedNow() / 3600000) * settings.rate : 0);
       $('summary-today-hours').textContent = hours.toFixed(1) + ' hrs';
       $('summary-today-rev').textContent = money(rev);
+      $('timer-today-worked').textContent = hms(Math.round(hours * 3600));   // every hour worked today, billable or not, incl. the running timer
+    }
+
+    function hms(sec) { return [Math.floor(sec / 3600), Math.floor(sec % 3600 / 60), sec % 60].map(n => String(n).padStart(2, '0')).join(':'); }
+
+    // Red live wall clock (24-hour, local time)
+    function renderWallClock() {
+      const d = new Date();
+      $('wall-clock').textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
     }
 
     function renderOverviewLogs() {
@@ -1670,7 +1690,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 20;
+    const APP_VERSION = 22;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
@@ -2379,6 +2399,8 @@
     renderCustomerList();
     renderOverviewLogs();
     renderTimer();
+    renderWallClock();
+    setInterval(renderWallClock, 1000);
     setTimeout(() => checkForUpdate(false, true), 800);   // look for a newer version each time the app opens
   </script>
 </body>
