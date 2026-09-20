@@ -142,6 +142,15 @@
     .js-photos figcaption { color: #666; padding-top: 3px; }
     .js-none { color: #888; font-style: italic; font-size: 13px; }
     .js-keep { page-break-inside: avoid; break-inside: avoid; }
+    .js-var { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+    .js-var td { border: 1px solid #d0d0d5; background: #f3f3f8; padding: 8px 10px; vertical-align: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .js-var .k { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: #666; text-transform: uppercase; }
+    .js-var .v { font-size: 21px; font-weight: 800; margin: 2px 0; }
+    .js-var .s { font-size: 11px; color: #666; }
+    .js-var td.loss { background: #ffecea; border: 2px solid #d70015; }
+    .js-var td.loss .v, .js-var td.loss .k { color: #d70015; }
+    .js-var td.profit { background: #e4f6ea; border: 2px solid #168c3c; }
+    .js-var td.profit .v, .js-var td.profit .k { color: #168c3c; }
     .js-lines div { border-bottom: 1px solid #999; height: 30px; }
     .js-sign { width: 100%; border-collapse: collapse; margin-top: 34px; }
     .js-sign td { border-top: 1px solid #333; padding-top: 4px; font-size: 12px; color: #444; }
@@ -436,7 +445,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)">🔄 Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 12 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 13 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -491,6 +500,11 @@
             <div class="card-section-label">Due / delivery date</div>
             <input type="date" class="ios-input" id="cust-deliver">
           </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="card-section-label">Quoted price (agreed with customer)</div>
+          <input type="number" class="ios-input" id="cust-quote" placeholder="e.g. 250" min="0" step="0.01" inputmode="decimal">
         </div>
 
         <div class="uk-finder-box">
@@ -813,6 +827,7 @@
             <div class="job-card-meta"><span>📍</span><span>${esc(c.address) || 'No address set'}${c.address && !(c.lat && c.lng) ? ' (not on map)' : ''}</span></div>
             <div class="job-card-meta"><span>📞</span><span>${esc(c.phone) || 'N/A'}</span></div>
             ${dateRows(c)}
+            ${quoteRow(c)}
             ${c.notes ? `<div class="job-card-note">${esc(c.notes)}</div>` : ''}
             ${contactRow(c)}
             <div class="job-card-actions">
@@ -965,7 +980,7 @@
 
     /* ================= Customer modal ================= */
     function openCustomerModal(id) {
-      ['cust-id', 'cust-name', 'cust-project', 'cust-phone', 'cust-address-input', 'cust-formatted-addr', 'cust-lat', 'cust-lng', 'cust-notes', 'cust-collect', 'cust-deliver'].forEach(f => $(f).value = '');
+      ['cust-id', 'cust-name', 'cust-project', 'cust-phone', 'cust-address-input', 'cust-formatted-addr', 'cust-lat', 'cust-lng', 'cust-notes', 'cust-collect', 'cust-deliver', 'cust-quote'].forEach(f => $(f).value = '');
       $('cust-status').value = 'New';
       $('finder-results').style.display = 'none';
       $('finder-status').textContent = '';
@@ -986,6 +1001,7 @@
         $('cust-notes').value = c.notes || '';
         $('cust-collect').value = c.collectDate || '';
         $('cust-deliver').value = c.deliverDate || '';
+        $('cust-quote').value = c.quote != null ? c.quote : '';
       }
       $('customer-modal').classList.add('active');
     }
@@ -1148,7 +1164,8 @@
         address, lat, lng,
         notes: $('cust-notes').value.trim(),
         collectDate: $('cust-collect').value || '',
-        deliverDate: $('cust-deliver').value || ''
+        deliverDate: $('cust-deliver').value || '',
+        quote: (() => { const q = parseFloat($('cust-quote').value); return isFinite(q) && q >= 0 ? Math.round(q * 100) / 100 : null; })()
       };
       const idx = id ? customers.findIndex(c => c.id === id) : -1;
       if (idx !== -1) customers[idx] = record; else customers.push(record);
@@ -1207,6 +1224,49 @@
       const r = parseFloat($('setting-rate').value);
       if (isFinite(r) && r >= 0) { settings.rate = r; saveAll(); renderClock(); }
     }
+    /* ================= Quote vs actual ================= */
+    const VAR_RED = [215, 0, 21], VAR_GREEN = [22, 140, 60], TINT_RED = [255, 236, 235], TINT_GREEN = [228, 246, 234];
+
+    // All time logs that belong to this job
+    const logsForJob = c => logs.filter(l => l.custId === c.id || (!l.custId && l.custName === c.name)).sort((a, b) => logTime(a) - logTime(b));
+
+    // Variance = quoted price - actual earned. Positive = profit (under quote), negative = loss (over quote).
+    function jobFigures(c, jl) {
+      jl = jl || logsForJob(c);
+      const actual = jl.reduce((s, l) => s + (l.earnings || 0), 0);
+      const hours = jl.reduce((s, l) => s + (l.hours || 0), 0);
+      const q = (c.quote == null || c.quote === '') ? NaN : Number(c.quote);
+      const quote = isFinite(q) ? q : null;
+      const variance = quote !== null && jl.length ? Math.round((quote - actual) * 100) / 100 : null;
+      const state = variance === null ? 'na' : variance > 0 ? 'profit' : variance < 0 ? 'loss' : 'even';
+      const pct = variance !== null && quote > 0 ? Math.abs(variance) / quote * 100 : null;
+      const tag = { profit: 'PROFIT', loss: 'LOSS', even: 'ON QUOTE', na: '—' }[state];
+      const note = state === 'profit' ? (pct !== null ? pct.toFixed(1) + '% under quote' : 'under quote')
+        : state === 'loss' ? (pct !== null ? pct.toFixed(1) + '% over quote' : 'over quote')
+        : state === 'even' ? 'exactly on quote'
+        : (quote === null ? 'no quote set' : 'no time logged yet');
+      return { quote, actual, hours, variance, state, tag, note };
+    }
+    function signedMoney(n) { const r = Math.round(n * 100) / 100; return (r > 0 ? '+' : r < 0 ? '-' : '') + money(Math.abs(r)); }
+
+    function quoteRow(c) {
+      const fig = jobFigures(c);
+      if (fig.quote === null) return '';
+      const color = fig.state === 'loss' ? '#d70015' : fig.state === 'profit' ? '#168c3c' : 'var(--text-sub)';
+      const tail = fig.variance === null ? '' : ` · <b style="color:${color};">${signedMoney(fig.variance)}</b>`;
+      return `<div class="job-card-meta"><span>💷</span><span>Quoted <b>${money(fig.quote)}</b> · Actual <b>${money(fig.actual)}</b>${tail}</span></div>`;
+    }
+
+    // The three-box summary under the time table on the job sheet preview
+    function varianceHtml(c, jl) {
+      const f = jobFigures(c, jl);
+      return `<table class="js-var"><tr>
+        <td><div class="k">Quoted price</div><div class="v">${f.quote === null ? '<span style="color:#999;font-size:16px;">Not set</span>' : esc(money(f.quote))}</div><div class="s">agreed with customer</div></td>
+        <td><div class="k">Actual earned</div><div class="v">${esc(money(f.actual))}</div><div class="s">${f.hours.toFixed(2)} hrs logged</div></td>
+        <td class="${f.state}"><div class="k">Variance · ${f.tag}</div><div class="v">${f.variance === null ? '—' : esc(signedMoney(f.variance))}</div><div class="s">${esc(f.note)}</div></td>
+      </tr></table>`;
+    }
+
     /* ================= PDF job sheet (one A4 page, no external libraries) ================= */
     const PDF_W = 595.28, PDF_H = 841.89;
     // Helvetica character widths for ASCII 32..126 (per 1000 units)
@@ -1345,7 +1405,25 @@
       } else {
         text(M, y + 9, 'No time logged for this job yet.', 9, false, GREY); y += 14;
       }
-      y += 12;
+
+      // Quoted price vs actual earned, with profit / loss variance
+      const fig = jobFigures(c, jl);
+      const vRgb = fig.state === 'loss' ? VAR_RED : fig.state === 'profit' ? VAR_GREEN : INK;
+      const vFill = fig.state === 'loss' ? TINT_RED : fig.state === 'profit' ? TINT_GREEN : SHADE;
+      const bw = (W - 12) / 3, bh = 44;
+      y += 8;
+      [
+        { k: 'QUOTED PRICE', v: fig.quote === null ? 'Not set' : money(fig.quote), s: 'agreed with customer', rgb: fig.quote === null ? GREY : INK },
+        { k: 'ACTUAL EARNED', v: money(fig.actual), s: fig.hours.toFixed(2) + ' hrs logged', rgb: INK },
+        { k: 'VARIANCE · ' + fig.tag, v: fig.variance === null ? '—' : signedMoney(fig.variance), s: fig.note, rgb: vRgb, fill: vFill, edge: fig.state === 'loss' || fig.state === 'profit' ? vRgb : null }
+      ].forEach((b, i) => {
+        const x = M + i * (bw + 6);
+        box(x, y, bw, bh, b.fill || SHADE, b.edge || EDGE, b.edge ? 1.2 : 0.5);
+        text(x + 8, y + 12, b.k, 7, true, b.edge || GREY);
+        text(x + 8, y + 29, fit(b.v, bw - 16, 15, true), 15, true, b.rgb);
+        text(x + 8, y + 39, fit(b.s, bw - 16, 7, false), 7, false, GREY);
+      });
+      y += bh + 12;
 
       // ---- Before / After photos ----
       const NOTES_H = 88, notesTop = PDF_H - M - NOTES_H;
@@ -1441,7 +1519,7 @@
       sheetURLs.forEach(u => URL.revokeObjectURL(u)); sheetURLs = [];
       recs.sort((a, b) => a.ts - b.ts);
 
-      const jl = logs.filter(l => l.custId === id || (!l.custId && l.custName === c.name)).sort((a, b) => logTime(a) - logTime(b));
+      const jl = logsForJob(c);
       const totalH = jl.reduce((s, l) => s + (l.hours || 0), 0);
       const totalE = jl.reduce((s, l) => s + (l.earnings || 0), 0);
       const dash = '<span style="color:#999;">—</span>';
@@ -1477,6 +1555,7 @@
         </table>
         <h2>Time &amp; earnings</h2>
         ${logTable}
+        ${varianceHtml(c, jl)}
         <h2>Before<span class="js-hint">tap a photo to enlarge</span></h2>
         ${photos('before')}
         <h2>After<span class="js-hint">tap a photo to enlarge</span></h2>
@@ -1517,7 +1596,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 12;
+    const APP_VERSION = 13;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
