@@ -713,7 +713,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.5h-4.5"/></svg>Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 30 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 32 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -1458,79 +1458,182 @@
     }
 
     function parseHouse(raw) {
-      const m = raw.match(/^(\d+[a-zA-Z]?|\b(?:flat|unit|no\.?)\s+\d+[a-zA-Z]?)\s+/i);
-      return m ? { house: m[1], rest: raw.slice(m[0].length) } : { house: '', rest: raw };
+      const m = raw.match(/^(\d+[a-zA-Z]?|\b(?:flat|unit|apt|no\.?)\s*\d+[a-zA-Z]?)[,\s]+/i);
+      return m ? { house: m[1].replace(/\s+/g, ' ').trim(), rest: raw.slice(m[0].length).trim() } : { house: '', rest: raw.trim() };
     }
     function ukPostcode(str) {
-      const c = str.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-      return /^[A-Z]{1,2}\d[A-Z0-9]?\d[A-Z]{2}$/.test(c) ? c : null;
+      const c = String(str).replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      return /^[A-Z]{1,2}\d[A-Z0-9]?\d[A-Z]{2}$/.test(c) ? c.slice(0, -3) + ' ' + c.slice(-3) : null;
+    }
+    // Pulls a postcode out of anywhere in the text (e.g. "3 Firs Close, Hazlemere HP15 7JA")
+    function findPostcode(raw) {
+      const m = String(raw).match(/([A-Za-z]{1,2}\d[A-Za-z\d]?)\s*(\d[A-Za-z]{2})/);
+      return m ? ukPostcode(m[1] + m[2]) : null;
     }
     function buildLabel(num, street, town, pc, country) {
       const parts = [];
       if (street) parts.push(num ? `${num} ${street}` : street);
-      if (town) parts.push(town);
+      else if (num && town) parts.push(num);
+      // town may be "Hazlemere, High Wycombe" (locality plus post town)
+      String(town || '').split(',').map(s => s.trim()).filter(Boolean).forEach(t => { if (!parts.includes(t)) parts.push(t); });
       if (pc) parts.push(pc);
-      if (country) parts.push(country);
+      parts.push(country || 'United Kingdom');
       return parts.join(', ');
     }
 
-    // Tries UK postcodes first, then UK-only searches, then anywhere in the world.
-    // Uses postcodes.io, Nominatim and Photon. Never throws.
+    /* UK address search.
+       Collects candidates from several services, then ranks them so an exact property
+       always appears above a street, and a street above a postcode or town centroid.
+       A postcode centroid is only ever offered as a last resort, clearly marked. */
+    const PRECISION = { property: 0, street: 1, postcode: 2, area: 3 };
+    const PRECISION_NOTE = { property: '', street: 'street only', postcode: 'postcode area', area: 'approximate area' };
+
     async function lookupAddress(raw) {
+      raw = String(raw || '').trim();
       const { house, rest } = parseHouse(raw);
-      const pc = ukPostcode(rest) || ukPostcode(raw);
+      const pc = findPostcode(raw);
+      const townHint = rest.replace(pc || '', '').replace(/[,\s]+$/, '').trim();
       let attempts = 0, failures = 0;
-      const seen = new Set();
       const results = [];
-      const add = r => { if (isFinite(r.lat) && isFinite(r.lng) && r.label && !seen.has(r.label)) { seen.add(r.label); results.push(r); } };
+      const seen = new Set();
 
-      const nominatim = async ukOnly => {
+      const add = r => {
+        if (!isFinite(r.lat) || !isFinite(r.lng) || !r.label) return;
+        // Same spot from two services: keep whichever is more precise
+        const key = r.lat.toFixed(5) + ',' + r.lng.toFixed(5);
+        const dupe = seen.has(key) ? results.find(x => x.lat.toFixed(5) + ',' + x.lng.toFixed(5) === key) : null;
+        if (dupe) { if (PRECISION[r.precision] < PRECISION[dupe.precision]) Object.assign(dupe, r); return; }
+        if (results.some(x => x.label === r.label)) return;
+        seen.add(key);
+        results.push(r);
+      };
+
+      // How exact is this result, and does it match what was typed?
+      const rank = (hasHouse, hasStreet, typeHint) => {
+        if (hasHouse && hasStreet) return 'property';
+        if (hasStreet) return 'street';
+        if (/postcode/.test(typeHint || '')) return 'postcode';
+        return 'area';
+      };
+
+      const fromNominatim = items => (items || []).forEach(item => {
+        const a = item.address || {};
+        const num = a.house_number || '';
+        const street = a.road || a.pedestrian || a.footway || '';
+        const local = a.village || a.hamlet || a.suburb || a.neighbourhood || '';
+        const post = a.town || a.city || '';
+        const town = [local, post].filter(Boolean).filter((v, i, arr) => arr.indexOf(v) === i).join(', ') || a.county || '';
+        const precision = rank(!!num, !!street, item.type);
+        add({
+          label: buildLabel(num, street, town, a.postcode, a.country),
+          lat: parseFloat(item.lat), lng: parseFloat(item.lon),
+          precision, importance: item.importance || 0
+        });
+      });
+
+      // Nominatim allows about one request a second, so space them out
+      let lastNom = 0;
+      const nomWait = async () => {
+        const gap = Date.now() - lastNom;
+        if (lastNom && gap < 1100) await new Promise(r => setTimeout(r, 1100 - gap));
+        lastNom = Date.now();
+      };
+
+      // Structured query: street and town must be separate fields, or Nominatim finds nothing
+      const structured = async (streetPart, cityPart) => {
+        if (!streetPart && !pc) return;
+        const p = new URLSearchParams({ format: 'jsonv2', addressdetails: '1', 'accept-language': 'en', countrycodes: 'gb', limit: '10' });
+        if (streetPart) p.set('street', streetPart);
+        if (cityPart) p.set('city', cityPart);
+        if (pc) p.set('postalcode', pc);
+        attempts++;
+        await nomWait();
+        try { fromNominatim(await fetchJson('https://nominatim.openstreetmap.org/search?' + p)); } catch (e) { failures++; }
+      };
+
+      // Plain text search, which handles anything the structured form can't
+      const freeText = async q => {
+        if (!q) return;
+        attempts++;
+        await nomWait();
+        try {
+          fromNominatim(await fetchJson(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&accept-language=en&countrycodes=gb&limit=10&q=${encodeURIComponent(q)}`));
+        } catch (e) { failures++; }
+      };
+
+      // Photon: no rate limit and good with house numbers, so it goes first
+      const photon = async q => {
+        if (!q) return;
         attempts++;
         try {
-          const data = await fetchJson(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&accept-language=en&limit=5${ukOnly ? '&countrycodes=gb' : ''}&q=${encodeURIComponent(raw)}`);
-          (data || []).forEach(item => {
-            const a = item.address || {};
+          const d = await fetchJson(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10&lang=en&bbox=-8.7,49.8,1.9,60.9`);
+          ((d && d.features) || []).forEach(feature => {
+            const p = feature.properties || {}, g = feature.geometry || {};
+            if (p.countrycode && p.countrycode !== 'GB') return;
+            const street = p.street || (p.osm_key === 'highway' ? p.name : '');
             add({
-              label: buildLabel(a.house_number || house, a.road || a.pedestrian, a.town || a.city || a.village || a.suburb, a.postcode, a.country || (ukOnly ? 'United Kingdom' : '')),
-              lat: parseFloat(item.lat), lng: parseFloat(item.lon)
+              label: buildLabel(p.housenumber || '', street, [p.locality || p.district || '', p.city || p.county || ''].filter(Boolean).join(', '), p.postcode, p.country),
+              lat: g.coordinates[1], lng: g.coordinates[0],
+              precision: rank(!!p.housenumber, !!street, p.osm_key === 'place' ? 'postcode' : ''),
+              importance: 0
             });
           });
         } catch (e) { failures++; }
       };
 
-      const photon = async ukOnly => {
-        attempts++;
-        try {
-          const d = await fetchJson(`https://photon.komoot.io/api/?q=${encodeURIComponent(raw)}&limit=5&lang=en${ukOnly ? '&bbox=-8.7,49.8,1.9,60.9' : ''}`);
-          ((d && d.features) || []).forEach(f => {
-            const p = f.properties || {};
-            add({
-              label: buildLabel(p.housenumber || house, p.street || p.name, p.city || p.district || p.county, p.postcode, p.country || (ukOnly ? 'United Kingdom' : '')),
-              lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0]
-            });
-          });
-        } catch (e) { failures++; }
-      };
+      // Split "3 Firs Close, Hazlemere" into a street and a town.
+      // With no comma, guess that the last word is the town and try it both ways.
+      const body = rest.replace(pc || '', '').replace(/[,\s]+$/, '').trim();
+      const commaBits = body.split(',').map(s => s.trim()).filter(Boolean);
+      const words = body.split(/\s+/).filter(Boolean);
+      const guesses = [];
+      if (commaBits.length > 1) guesses.push([ [house, commaBits[0]].filter(Boolean).join(' '), commaBits.slice(1).join(', ') ]);
+      if (body) guesses.push([ [house, body].filter(Boolean).join(' '), '' ]);
+      // "3 Firs Close" — don't mistake the street type for a town name
+      const STREET_WORD = /^(close|road|rd|street|st|lane|ln|avenue|ave|drive|dr|way|court|crescent|place|terrace|gardens?|hill|park|grove|rise|view|walk|green|row|square|mews|end|side|field|bank|vale|meadows?)$/i;
+      if (commaBits.length === 1 && words.length > 1 && !STREET_WORD.test(words[words.length - 1]))
+        guesses.push([ [house, words.slice(0, -1).join(' ')].filter(Boolean).join(' '), words[words.length - 1] ]);
+      if (!body && pc) guesses.push([ house, '' ]);
 
-      if (pc) {
+      const gotProperty = () => results.some(r => r.precision === 'property');
+
+      await photon(raw);
+      for (const [s, c] of guesses) { if (gotProperty()) break; await structured(s, c); }
+      if (!gotProperty()) await freeText(raw);
+      if (!results.length && house) await freeText(body || rest);     // street without the number
+      if (!results.length && pc) await freeText(pc);
+
+      // Postcode centroid: only when nothing more precise was found anywhere
+      if (pc && !results.length) {
         attempts++;
         try {
-          const d = await fetchJson(`https://api.postcodes.io/postcodes/${pc}`);
+          const d = await fetchJson(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc.replace(' ', ''))}`);
           if (d.status === 200 && d.result) {
             const r = d.result;
-            const place = [house, r.admin_district || r.parish].filter(Boolean).join(' ');
-            add({ label: `${place}, ${r.postcode}, United Kingdom`, lat: r.latitude, lng: r.longitude });
+            add({
+              label: buildLabel(house, '', r.admin_ward || r.parish || r.admin_district, r.postcode, 'United Kingdom'),
+              lat: r.latitude, lng: r.longitude, precision: 'postcode', importance: 0
+            });
           }
         } catch (e) { failures++; }
-        if (results.length) return { results, error: null };
       }
 
-      await nominatim(true);  if (results.length) return { results, error: null };
-      await nominatim(false); if (results.length) return { results, error: null };
-      await photon(true);     if (results.length) return { results, error: null };
-      await photon(false);
+      // Exact properties first; then anything matching the postcode that was typed
+      results.sort((a, b) => {
+        const pa = PRECISION[a.precision] - PRECISION[b.precision];
+        if (pa) return pa;
+        if (pc) {
+          const ma = a.label.includes(pc) ? 0 : 1, mb = b.label.includes(pc) ? 0 : 1;
+          if (ma !== mb) return ma - mb;
+        }
+        if (house) {
+          const ha = a.label.startsWith(house + ' ') ? 0 : 1, hb = b.label.startsWith(house + ' ') ? 0 : 1;
+          if (ha !== hb) return ha - hb;
+        }
+        return (b.importance || 0) - (a.importance || 0);
+      });
 
-      return { results, error: results.length ? null : (failures === attempts ? 'network' : 'notfound') };
+      return { results: results.slice(0, 8), error: results.length ? null : (failures === attempts ? 'network' : 'notfound') };
     }
 
     let finderResults = [];
@@ -1552,7 +1655,10 @@
         return;
       }
       finderResults = results;
-      box.innerHTML = results.map((r, i) => `<div class="finder-result-item" data-i="${i}" onclick="selectAddress(+this.dataset.i)"><span class="mi">${icon('pin')}</span> ${esc(r.label)}</div>`).join('');
+      box.innerHTML = results.map((r, i) => {
+        const note = PRECISION_NOTE[r.precision];
+        return `<div class="finder-result-item" data-i="${i}" onclick="selectAddress(+this.dataset.i)"><span class="mi">${icon('pin')}</span> ${esc(r.label)}${note ? `<span style="color:var(--text-sub);"> · ${note}</span>` : ''}</div>`;
+      }).join('');
       box.style.display = 'block';
       status.textContent = 'Tap to select address:';
     }
@@ -1579,7 +1685,7 @@
       let note = 'Job saved';
 
       // Address typed but never picked from the list: use the best match automatically
-      if (typed && (lat === null || lng === null)) {
+      if (typed && (lat === null || lng === null)) {   // only when nothing was picked from the list
         btn.disabled = true; btn.textContent = 'Locating address…';
         const { results } = await lookupAddress(typed);
         btn.disabled = false; btn.textContent = 'Save Job';
@@ -2062,7 +2168,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 30;
+    const APP_VERSION = 32;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
