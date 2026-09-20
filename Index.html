@@ -177,6 +177,8 @@
     .up-row:last-child { border-bottom: none; }
     .up-row.tap { cursor: pointer; }
     .up-row .r { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .gauge { height: 10px; border-radius: 6px; background: #e5e5ea; overflow: hidden; margin: 8px 0 6px; }
+    .gauge > div { height: 100%; width: 0; border-radius: 6px; background: #34c759; transition: width 0.4s, background 0.3s; }
     .chart { display: flex; align-items: flex-end; gap: 3px; height: 90px; padding-top: 6px; }
     .chart .col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
     .chart .bar { width: 80%; max-width: 26px; background: #007aff; border-radius: 4px 4px 0 0; }
@@ -285,7 +287,7 @@
         <div style="text-align: left; margin-bottom: 16px;">
           <div class="card-section-label">Assign to customer/job</div>
           <div class="select-wrapper">
-            <select class="ios-select" id="timer-job-select">
+            <select class="ios-select" id="timer-job-select" onchange="renderClock()">
               <option value="">-- General / Unassigned --</option>
             </select>
           </div>
@@ -295,6 +297,7 @@
           <div class="metric-item">
             <div style="font-size: 12px; color: var(--text-sub);">Est. Earnings</div>
             <div class="val green" id="timer-est-earnings">£0.00</div>
+            <div id="timer-est-note" style="font-size: 11px; color: var(--text-sub); margin-top: 2px; min-height: 13px;"></div>
           </div>
           <div style="width: 1px; background: var(--border-color);"></div>
           <div class="metric-item">
@@ -307,6 +310,26 @@
           <span id="timer-btn-icon">►</span> <span id="timer-btn-text">Start</span>
         </button>
         <button class="btn-break" id="btn-timer-break" onclick="toggleBreak()">☕ Take a Break</button>
+      </div>
+
+      <div class="card" id="job-info-card" style="display: none;">
+        <div class="card-section-label">Current job</div>
+        <div id="ji-title" style="font-size: 16px; font-weight: 700; margin-bottom: 10px;"></div>
+        <div class="summary-grid">
+          <div class="summary-box"><div class="lbl">Quoted price (target)</div><div class="num" id="ji-quote">—</div></div>
+          <div class="summary-box"><div class="lbl">Time allowance</div><div class="num" id="ji-allow">—</div><div id="ji-allow-sub" style="font-size: 11px; color: var(--text-sub); margin-top: 2px;"></div></div>
+        </div>
+        <div id="ji-gauge-wrap">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 14px; gap: 10px;">
+            <span style="font-size: 12px; color: var(--text-sub);">Time remaining</span>
+            <span id="ji-remaining" style="font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums;"></span>
+          </div>
+          <div class="gauge"><div id="ji-bar"></div></div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sub); gap: 10px;">
+            <span id="ji-used"></span><span id="ji-pct"></span>
+          </div>
+        </div>
+        <div id="ji-note" style="font-size: 13px; color: var(--text-sub); line-height: 1.4; margin-top: 10px; display: none;"></div>
       </div>
 
       <div class="card">
@@ -450,7 +473,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)">🔄 Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 15 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 19 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -553,7 +576,7 @@
 
         <div style="margin-bottom: 12px;">
           <div class="card-section-label">Customer / job</div>
-          <div class="select-wrapper"><select class="ios-select" id="log-cust"></select></div>
+          <div class="select-wrapper"><select class="ios-select" id="log-cust" onchange="updateLogPreview()"></select></div>
         </div>
 
         <div style="margin-bottom: 12px;">
@@ -751,9 +774,9 @@
           logs.unshift({
             id: String(now), custId: timer.jobId || '', custName: c ? c.name : 'General / Unassigned',
             ts: now, date: fmtDate(now), hours: Math.round(hours * 100) / 100,
-            breaks: Math.round(brk / 60000), earnings: Math.round(hours * settings.rate * 100) / 100
+            breaks: Math.round(brk / 60000), earnings: timer.jobId ? Math.round(hours * settings.rate * 100) / 100 : 0   // General time earns nothing
           });
-          toast('Time log saved');
+          toast(timer.jobId ? 'Time log saved' : 'Time log saved (non-billable)');
         }
         timer = { running: false, onBreak: false, segStart: null, workedMs: 0, breakMs: 0, jobId: '' };
         saveAll();
@@ -773,12 +796,65 @@
       renderTimer();
     }
 
+    // ---- Current job info: quoted price, hours it covers at your rate, and time left ----
+    const fmtHrs = h => String(Math.round(h * 100) / 100);
+    const fmtSpan = h => { const m = Math.round(Math.abs(h) * 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
+    const rateLabel = r => settings.currency + (Number.isInteger(r) ? r : r.toFixed(2));
+
+    function renderJobInfo() {
+      const card = $('job-info-card');
+      if (!card) return;
+      const jobId = timer.running ? timer.jobId : $('timer-job-select').value;
+      const c = jobId ? findCustomer(jobId) : null;
+      if (!c) { card.style.display = 'none'; return; }      // General / Unassigned: nothing to show
+      card.style.display = 'block';
+      $('ji-title').textContent = c.name + (c.project ? ' · ' + c.project : '');
+
+      const fig = jobFigures(c), quote = fig.quote, rate = settings.rate;      // fig.hours = every hour already logged on this job
+      const logged = fig.hours + (timer.running ? workedNow() / 3600000 : 0);
+      const note = $('ji-note'), wrap = $('ji-gauge-wrap');
+      $('ji-quote').textContent = quote === null ? 'No quote' : money(quote);
+
+      if (quote === null || !(rate > 0)) {
+        $('ji-allow').textContent = 'N/A';
+        $('ji-allow-sub').textContent = '';
+        wrap.style.display = 'none';
+        note.style.display = 'block';
+        note.textContent = quote === null
+          ? `No quoted price set for this job yet. Add one in Customers to see how many hours it covers. Logged so far: ${fmtHrs(logged)} hrs.`
+          : 'Set an hourly rate in Settings to see how many hours this quote covers.';
+        return;
+      }
+
+      const allowance = quote / rate;                     // hours the quote covers at your standard rate
+      const remaining = allowance - logged;
+      const pct = allowance > 0 ? logged / allowance * 100 : 100;
+      const color = pct >= 100 ? '#ff3b30' : pct >= 75 ? '#ff9500' : '#34c759';
+      $('ji-allow').textContent = fmtHrs(allowance) + ' hrs';
+      $('ji-allow-sub').textContent = 'max @ ' + rateLabel(rate) + '/hr';
+      wrap.style.display = 'block';
+      note.style.display = 'none';
+      const rem = $('ji-remaining');
+      rem.textContent = remaining >= 0 ? fmtSpan(remaining) + ' left' : 'Over by ' + fmtSpan(remaining);
+      rem.style.color = color;
+      $('ji-bar').style.width = Math.min(100, pct) + '%';
+      $('ji-bar').style.background = color;
+      $('ji-used').textContent = 'Logged ' + fmtHrs(logged) + ' of ' + fmtHrs(allowance) + ' hrs';
+      $('ji-pct').textContent = Math.round(pct) + '% of budget used';
+    }
+
     function renderClock() {
       const secs = Math.floor(workedNow() / 1000);
       $('timer-clock').textContent = [Math.floor(secs / 3600), Math.floor((secs % 3600) / 60), secs % 60].map(n => String(n).padStart(2, '0')).join(':');
-      $('timer-est-earnings').textContent = money((secs / 3600) * settings.rate);
+      // Est. Earnings only counts when a specific customer/job is selected; General time is non-billable
+      const billableJob = timer.running ? timer.jobId : $('timer-job-select').value;
+      const est = $('timer-est-earnings');
+      est.textContent = billableJob ? money((secs / 3600) * settings.rate) : 'N/A';
+      est.style.color = billableJob ? '' : 'var(--text-sub)';
+      $('timer-est-note').textContent = billableJob ? '' : 'non-billable';
       $('timer-breaks').textContent = Math.floor(breakNow() / 60000) + ' mins';
       renderSummary();
+      renderJobInfo();
     }
 
     function renderTimer() {
@@ -851,7 +927,7 @@
     function renderSummary() {
       const today = logs.filter(isToday);
       const hours = today.reduce((s, l) => s + (l.hours || 0), 0) + (timer.running ? workedNow() / 3600000 : 0);
-      const rev = today.reduce((s, l) => s + (l.earnings || 0), 0) + (timer.running ? (workedNow() / 3600000) * settings.rate : 0);
+      const rev = today.reduce((s, l) => s + earnOf(l), 0) + (timer.running && timer.jobId ? (workedNow() / 3600000) * settings.rate : 0);
       $('summary-today-hours').textContent = hours.toFixed(1) + ' hrs';
       $('summary-today-rev').textContent = money(rev);
     }
@@ -862,7 +938,7 @@
         box.innerHTML = '<div class="empty">No time logged yet. Start the timer, or add a shift in Manage.</div>';
       } else {
         const totalH = logs.reduce((s, l) => s + (l.hours || 0), 0);
-        const totalE = logs.reduce((s, l) => s + (l.earnings || 0), 0);
+        const totalE = logs.reduce((s, l) => s + earnOf(l), 0);
         box.innerHTML = `<div class="card-section-label" style="margin-bottom:10px;">All time: ${totalH.toFixed(2)} hrs · ${money(totalE)}</div>` +
           logs.map(l => `
           <div class="log-row" data-id="${esc(l.id)}" onclick="openLogModal(this.dataset.id)">
@@ -871,13 +947,14 @@
               <div style="font-size:12px;color:var(--text-sub);margin-top:2px;">${esc(l.date)} • ${(l.hours || 0).toFixed(2)} hrs logged (${l.breaks || 0}m break)${l.notes ? ' • 📝' : ''}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
-              <div style="font-size:16px;font-weight:700;color:var(--primary-green);">${money(l.earnings)}</div>
+              ${isBillable(l) ? `<div style="font-size:16px;font-weight:700;color:var(--primary-green);">${money(l.earnings)}</div>` : `<div style="font-size:12px;font-weight:600;color:var(--text-sub);">Non-billable</div>`}
               <span style="color:#c7c7cc;font-size:22px;line-height:1;">›</span>
             </div>
           </div>`).join('');
       }
       renderSummary();
       renderEarnings();
+      renderJobInfo();
     }
 
     /* ---- In-page confirm dialog ---- */
@@ -923,12 +1000,12 @@
       $('log-date').value = isoDate(l.ts || Date.now());
       $('log-hours').value = l.hours || 0;
       $('log-break').value = l.breaks || 0;
-      $('log-rate').value = l.hours > 0 ? Math.round((l.earnings / l.hours) * 100) / 100 : settings.rate;
+      $('log-rate').value = l.hours > 0 && isBillable(l) ? Math.round((l.earnings / l.hours) * 100) / 100 : settings.rate;
       $('log-notes').value = l.notes || '';
       $('log-info').textContent = l.ts
         ? 'Logged ' + new Date(l.ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         : 'Logged ' + l.date;
-      logEditOrig = { hours: parseFloat($('log-hours').value), rate: parseFloat($('log-rate').value) };
+      logEditOrig = { hours: parseFloat($('log-hours').value), rate: parseFloat($('log-rate').value), key };
       updateLogPreview();
       $('log-modal').classList.add('active');
     }
@@ -936,7 +1013,7 @@
 
     function updateLogPreview() {
       const h = parseFloat($('log-hours').value), r = parseFloat($('log-rate').value);
-      $('log-earn').textContent = money(isFinite(h) && isFinite(r) ? h * r : 0);
+      $('log-earn').textContent = $('log-cust').value === '' ? 'N/A (non-billable)' : money(isFinite(h) && isFinite(r) ? h * r : 0);
     }
 
     function saveLog(e) {
@@ -963,8 +1040,9 @@
       l.date = fmtDate(l.ts);
       l.hours = Math.round(hours * 100) / 100;
       l.breaks = Math.round(brk);
-      const unchanged = logEditOrig && hours === logEditOrig.hours && rate === logEditOrig.rate;
-      if (!unchanged) l.earnings = Math.round(hours * rate * 100) / 100;
+      const unchanged = logEditOrig && hours === logEditOrig.hours && rate === logEditOrig.rate && key === logEditOrig.key;
+      if (key === '') l.earnings = 0;                                            // General / Unassigned is non-billable
+      else if (!unchanged) l.earnings = Math.round(hours * rate * 100) / 100;
       l.notes = $('log-notes').value.trim();
 
       saveAll();
@@ -1600,7 +1678,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 15;
+    const APP_VERSION = 19;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
@@ -1923,6 +2001,9 @@
     /* ================= Earnings summary ================= */
     let sumRange = 'week';
     const logTime = l => l.ts || Date.parse(l.date) || 0;
+    // General / Unassigned time is non-billable: it counts as hours worked, but never as money.
+    const isBillable = l => !!l.custId || (!!l.custName && l.custName !== 'General / Unassigned');
+    const earnOf = l => isBillable(l) ? (l.earnings || 0) : 0;
     function setSumRange(r) { sumRange = r; renderEarnings(); }
 
     function rangeBounds(r) {
@@ -1943,12 +2024,13 @@
 
       const list = logsInRange(sumRange);
       const hours = list.reduce((s, l) => s + (l.hours || 0), 0);
-      const earned = list.reduce((s, l) => s + (l.earnings || 0), 0);
+      const earned = list.reduce((s, l) => s + earnOf(l), 0);
+      const nbHours = list.filter(l => !isBillable(l)).reduce((s, l) => s + (l.hours || 0), 0);
       const days = new Set(list.map(l => new Date(logTime(l)).toDateString())).size;
       $('sum-hours').textContent = hours.toFixed(1) + ' hrs';
       $('sum-earned').textContent = money(earned);
       $('sum-extra').textContent = list.length
-        ? `${list.length} log${list.length === 1 ? '' : 's'} on ${days} day${days === 1 ? '' : 's'} · average ${(hours / days).toFixed(1)} hrs/day`
+        ? `${list.length} log${list.length === 1 ? '' : 's'} on ${days} day${days === 1 ? '' : 's'} · average ${(hours / days).toFixed(1)} hrs/day${nbHours > 0 ? ` · ${nbHours.toFixed(1)} hrs non-billable` : ''}`
         : 'Nothing logged in this period.';
 
       // Daily hours chart (not for "all time")
@@ -1967,10 +2049,10 @@
 
       // By customer
       const by = {};
-      list.forEach(l => { const k = l.custName || 'General / Unassigned'; by[k] = by[k] || { h: 0, e: 0 }; by[k].h += l.hours || 0; by[k].e += l.earnings || 0; });
+      list.forEach(l => { const k = l.custName || 'General / Unassigned'; by[k] = by[k] || { h: 0, e: 0, nb: !isBillable(l) }; by[k].h += l.hours || 0; by[k].e += earnOf(l); });
       const rows = Object.entries(by).sort((a, b) => b[1].e - a[1].e);
       $('sum-by-cust').innerHTML = rows.length
-        ? rows.map(([k, v]) => `<div class="up-row"><span>${esc(k)}</span><span class="r">${v.h.toFixed(1)}h · ${money(v.e)}</span></div>`).join('')
+        ? rows.map(([k, v]) => `<div class="up-row"><span>${esc(k)}</span><span class="r">${v.h.toFixed(1)}h · ${v.nb ? 'non-billable' : money(v.e)}</span></div>`).join('')
         : '<div class="empty" style="padding: 8px 0;">No time logged in this period.</div>';
     }
 
@@ -1981,9 +2063,9 @@
       const out = [['Date', 'Customer', 'Hours', 'Break (min)', 'Rate', 'Earnings', 'Notes'].join(',')];
       rows.forEach(l => {
         const h = l.hours || 0;
-        out.push([isoDate(logTime(l)), l.custName, h.toFixed(2), l.breaks || 0, h > 0 ? ((l.earnings || 0) / h).toFixed(2) : '', (l.earnings || 0).toFixed(2), l.notes || ''].map(csvCell).join(','));
+        out.push([isoDate(logTime(l)), l.custName, h.toFixed(2), l.breaks || 0, h > 0 && isBillable(l) ? (earnOf(l) / h).toFixed(2) : '', earnOf(l).toFixed(2), l.notes || ''].map(csvCell).join(','));
       });
-      out.push(['Total', '', rows.reduce((s, l) => s + (l.hours || 0), 0).toFixed(2), '', '', rows.reduce((s, l) => s + (l.earnings || 0), 0).toFixed(2), ''].join(','));
+      out.push(['Total', '', rows.reduce((s, l) => s + (l.hours || 0), 0).toFixed(2), '', '', rows.reduce((s, l) => s + earnOf(l), 0).toFixed(2), ''].join(','));
       const res = await shareOrDownload(`UpholsteryMate-timesheet-${sumRange}-${isoDate(Date.now())}.csv`, 'text/csv', '\ufeff' + out.join('\r\n'), 'Timesheet');
       if (res === 'failed') toast('Couldn\'t create the timesheet file');
       else if (res === 'downloaded') toast('Timesheet downloaded');
