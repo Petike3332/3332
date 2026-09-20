@@ -142,15 +142,16 @@
     .js-photos figcaption { color: #666; padding-top: 3px; }
     .js-none { color: #888; font-style: italic; font-size: 13px; }
     .js-keep { page-break-inside: avoid; break-inside: avoid; }
-    .js-var { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
-    .js-var td { border: 1px solid #d0d0d5; background: #f3f3f8; padding: 8px 10px; vertical-align: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .js-var .k { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: #666; text-transform: uppercase; }
-    .js-var .v { font-size: 21px; font-weight: 800; margin: 2px 0; }
-    .js-var .s { font-size: 11px; color: #666; }
-    .js-var td.loss { background: #ffecea; border: 2px solid #d70015; }
-    .js-var td.loss .v, .js-var td.loss .k { color: #d70015; }
-    .js-var td.profit { background: #e4f6ea; border: 2px solid #168c3c; }
-    .js-var td.profit .v, .js-var td.profit .k { color: #168c3c; }
+    /* Quote vs actual: three side-by-side metric cards under the time table */
+    .js-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+    .js-card { min-width: 0; padding: 8px 10px; border: 1px solid #d0d0d5; border-radius: 4px; background: #f3f3f8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .js-card .k { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #666; }
+    .js-card .v { font-size: clamp(15px, 4.6vw, 21px); font-weight: 800; margin: 2px 0; overflow-wrap: anywhere; }
+    .js-card .s { font-size: 11px; color: #666; }
+    .js-card.loss { background: #ffecea; border: 2px solid #d70015; }
+    .js-card.loss .k, .js-card.loss .v { color: #d70015; }
+    .js-card.profit { background: #e4f6ea; border: 2px solid #168c3c; }
+    .js-card.profit .k, .js-card.profit .v { color: #168c3c; }
     .js-lines div { border-bottom: 1px solid #999; height: 30px; }
     .js-sign { width: 100%; border-collapse: collapse; margin-top: 34px; }
     .js-sign td { border-top: 1px solid #333; padding-top: 4px; font-size: 12px; color: #444; }
@@ -195,7 +196,11 @@
     .photo-viewer.zoomed img { max-width: none; max-height: none; width: 220vw; cursor: zoom-out; }
     .js-hint { font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; color: #888; margin-left: 6px; }
     #jobsheet-body img { cursor: zoom-in; }
-    @media print { .js-hint { display: none; } }
+    @media print {
+      .js-hint { display: none; }
+      .js-cards, .js-card { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .js-card { break-inside: avoid; page-break-inside: avoid; }
+    }
     .status-pill { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .status-pill.new { background: var(--status-new-bg); color: var(--status-new-txt); }
     .status-pill.progress { background: var(--status-prog-bg); color: var(--status-prog-txt); }
@@ -445,7 +450,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)">🔄 Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 13 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 15 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -1238,33 +1243,32 @@
       const q = (c.quote == null || c.quote === '') ? NaN : Number(c.quote);
       const quote = isFinite(q) ? q : null;
       const variance = quote !== null && jl.length ? Math.round((quote - actual) * 100) / 100 : null;
-      const state = variance === null ? 'na' : variance > 0 ? 'profit' : variance < 0 ? 'loss' : 'even';
+      const state = variance === null ? 'na' : variance >= 0 ? 'profit' : 'loss';   // actual <= quoted is a profit
       const pct = variance !== null && quote > 0 ? Math.abs(variance) / quote * 100 : null;
-      const tag = { profit: 'PROFIT', loss: 'LOSS', even: 'ON QUOTE', na: '—' }[state];
-      const note = state === 'profit' ? (pct !== null ? pct.toFixed(1) + '% under quote' : 'under quote')
-        : state === 'loss' ? (pct !== null ? pct.toFixed(1) + '% over quote' : 'over quote')
-        : state === 'even' ? 'exactly on quote'
+      const tag = { profit: 'PROFIT', loss: 'LOSS', na: '—' }[state];
+      const note = state === 'profit' ? (variance === 0 ? 'labor exactly on quote' : pct !== null ? pct.toFixed(1) + '% labor margin saved' : 'labor margin saved')
+        : state === 'loss' ? (pct !== null ? pct.toFixed(1) + '% over estimated labor' : 'over estimated labor')
         : (quote === null ? 'no quote set' : 'no time logged yet');
       return { quote, actual, hours, variance, state, tag, note };
     }
-    function signedMoney(n) { const r = Math.round(n * 100) / 100; return (r > 0 ? '+' : r < 0 ? '-' : '') + money(Math.abs(r)); }
+    function signedMoney(n) { const r = Math.round(n * 100) / 100; return (r < 0 ? '-' : '+') + money(Math.abs(r)); }
 
     function quoteRow(c) {
       const fig = jobFigures(c);
       if (fig.quote === null) return '';
       const color = fig.state === 'loss' ? '#d70015' : fig.state === 'profit' ? '#168c3c' : 'var(--text-sub)';
       const tail = fig.variance === null ? '' : ` · <b style="color:${color};">${signedMoney(fig.variance)}</b>`;
-      return `<div class="job-card-meta"><span>💷</span><span>Quoted <b>${money(fig.quote)}</b> · Actual <b>${money(fig.actual)}</b>${tail}</span></div>`;
+      return `<div class="job-card-meta"><span>💷</span><span>Quoted <b>${money(fig.quote)}</b> · Labor <b>${money(fig.actual)}</b>${tail}</span></div>`;
     }
 
-    // The three-box summary under the time table on the job sheet preview
+    // Three metric cards under the time table on the job sheet preview
     function varianceHtml(c, jl) {
       const f = jobFigures(c, jl);
-      return `<table class="js-var"><tr>
-        <td><div class="k">Quoted price</div><div class="v">${f.quote === null ? '<span style="color:#999;font-size:16px;">Not set</span>' : esc(money(f.quote))}</div><div class="s">agreed with customer</div></td>
-        <td><div class="k">Actual earned</div><div class="v">${esc(money(f.actual))}</div><div class="s">${f.hours.toFixed(2)} hrs logged</div></td>
-        <td class="${f.state}"><div class="k">Variance · ${f.tag}</div><div class="v">${f.variance === null ? '—' : esc(signedMoney(f.variance))}</div><div class="s">${esc(f.note)}</div></td>
-      </tr></table>`;
+      return `<div class="js-cards">
+        <div class="js-card"><div class="k">Quoted price (revenue)</div><div class="v">${f.quote === null ? '<span style="color:#999;font-size:16px;">Not set</span>' : esc(money(f.quote))}</div><div class="s">agreed with customer</div></div>
+        <div class="js-card"><div class="k">Labor time cost</div><div class="v">${esc(money(f.actual))}</div><div class="s">${f.hours.toFixed(2)} hrs logged</div></div>
+        <div class="js-card ${f.state}"><div class="k">Variance · ${f.tag}</div><div class="v">${f.variance === null ? '—' : esc(signedMoney(f.variance))}</div><div class="s">${esc(f.note)}</div></div>
+      </div>`;
     }
 
     /* ================= PDF job sheet (one A4 page, no external libraries) ================= */
@@ -1413,8 +1417,8 @@
       const bw = (W - 12) / 3, bh = 44;
       y += 8;
       [
-        { k: 'QUOTED PRICE', v: fig.quote === null ? 'Not set' : money(fig.quote), s: 'agreed with customer', rgb: fig.quote === null ? GREY : INK },
-        { k: 'ACTUAL EARNED', v: money(fig.actual), s: fig.hours.toFixed(2) + ' hrs logged', rgb: INK },
+        { k: 'QUOTED PRICE (REVENUE)', v: fig.quote === null ? 'Not set' : money(fig.quote), s: 'agreed with customer', rgb: fig.quote === null ? GREY : INK },
+        { k: 'LABOR TIME COST', v: money(fig.actual), s: fig.hours.toFixed(2) + ' hrs logged', rgb: INK },
         { k: 'VARIANCE · ' + fig.tag, v: fig.variance === null ? '—' : signedMoney(fig.variance), s: fig.note, rgb: vRgb, fill: vFill, edge: fig.state === 'loss' || fig.state === 'profit' ? vRgb : null }
       ].forEach((b, i) => {
         const x = M + i * (bw + 6);
@@ -1596,7 +1600,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 13;
+    const APP_VERSION = 15;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
