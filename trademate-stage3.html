@@ -272,6 +272,15 @@ a { color: var(--link); text-decoration: none; }
 .ps-rates span:nth-child(1) { flex: 1; } .ps-rates span:nth-child(2) { color: #666; } .ps-rates span:nth-child(3) { min-width: 80px; text-align: right; }
 .ps-lines div { border-bottom: 1px solid #c8c8cf; height: 24px; }
 
+/* Each job on its own card */
+.swipe.jobcard { background: var(--card); border-radius: 16px; margin: 0 16px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.swipe.jobcard .front { border-radius: 16px; }
+.swipe.jobcard + .swipe.jobcard::before, .swipe.jobcard + .swipe.jobcard .front::before { content: none; }
+.swipe.jobcard.flash .front { box-shadow: inset 0 0 0 2px var(--blue); }
+/* "We collect / Customer drops off" choice inside a list row */
+.seg.segrow { margin: 0; width: 100%; }
+.seg.segrow button { font-size: 13.5px; padding: 7px 4px; }
+
 </style>
 </head>
 <body>
@@ -792,8 +801,8 @@ a { color: var(--link); text-decoration: none; }
   }
 
   // Swipe left to reveal actions (Edit / Delete), like iOS lists.
-  function swipeRow(frontHTML, actions, id) {
-    return `<div class="swipe"${id ? ` data-jid="${esc(id)}"` : ''}><div class="acts-behind">${actions.map((a, i) => `<button data-sw="${i}" style="background:${a.color}">${esc(a.label)}</button>`).join('')}</div>
+  function swipeRow(frontHTML, actions, id, extraClass) {
+    return `<div class="swipe${extraClass ? ' ' + extraClass : ''}"${id ? ` data-jid="${esc(id)}"` : ''}><div class="acts-behind">${actions.map((a, i) => `<button data-sw="${i}" style="background:${a.color}">${esc(a.label)}</button>`).join('')}</div>
       <div class="front">${frontHTML}</div></div>`;
   }
   let openSwipe = null;
@@ -996,7 +1005,17 @@ a { color: var(--link); text-decoration: none; }
   }
 
   // ---------- Dates: collection / delivery ----------
-  const DATE_FIELDS = [['collectionDate', 'Collect', '📥'], ['deliveryDate', 'Deliver', '📦']];
+  // Who moves the item: the business (collect / deliver) or the customer (drops off / picks up)
+  const DATE_KINDS = {
+    collect: { short: 'Collect', long: 'Collection date', on: 'Collect on', icon: '📥' },
+    dropoff: { short: 'Drop-off', long: 'Drop-off date (customer brings it)', on: 'Drop-off on', icon: '🚗' },
+    deliver: { short: 'Deliver', long: 'Due / delivery date', on: 'Deliver on', icon: '📦' },
+    pickup: { short: 'Pick-up', long: 'Pick-up date (customer collects it)', on: 'Pick-up on', icon: '🚗' }
+  };
+  const dateFields = j => [
+    ['collectionDate', DATE_KINDS[j.collectionType === 'dropoff' ? 'dropoff' : 'collect']],
+    ['deliveryDate', DATE_KINDS[j.deliveryType === 'pickup' ? 'pickup' : 'deliver']]
+  ];
   function dayDiff(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     const n = new Date();
@@ -1013,9 +1032,9 @@ a { color: var(--link); text-decoration: none; }
   const dateColor = diff => diff < 0 ? 'var(--red)' : diff <= 1 ? 'var(--orange-t)' : 'var(--sub)';
 
   function dateRows(j) {
-    return DATE_FIELDS.filter(([f]) => j[f]).map(([f, label, icon]) => {
+    return dateFields(j).filter(([f]) => j[f]).map(([f, k]) => {
       const open = j.status !== 'Completed', diff = dayDiff(j[f]);
-      return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${icon} ${label}: <b>${esc(prettyDay(j[f]))}</b>${open ? ' · ' + whenLabel(diff) : ''}
+      return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${k.icon} ${k.short}: <b>${esc(prettyDay(j[f]))}</b>${open ? ' · ' + whenLabel(diff) : ''}
         <button type="button" class="minilink" data-cal="${esc(j.id)}" data-f="${f}">+ Calendar</button></div>`;
     }).join('');
   }
@@ -1027,7 +1046,7 @@ a { color: var(--link); text-decoration: none; }
     const ev = [];
     S.jobs.forEach(j => {
       if (j.status === 'Completed') return;
-      DATE_FIELDS.forEach(([f, label, icon]) => { if (j[f]) ev.push({ j, label, icon, diff: dayDiff(j[f]) }); });
+      dateFields(j).forEach(([f, k]) => { if (j[f]) ev.push({ j, label: k.short, icon: k.icon, diff: dayDiff(j[f]) }); });
     });
     ev.sort((a, b) => a.diff - b.diff);
     box.innerHTML = `<div class="cap">Coming up</div>` + (ev.length
@@ -1076,7 +1095,7 @@ a { color: var(--link); text-decoration: none; }
     if (!j || !j[field]) return;
     const [y, m, d] = j[field].split('-').map(Number);
     const ymd = dt => `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}`;
-    const verb = field === 'collectionDate' ? 'Collect' : 'Deliver';
+    const verb = dateFields(j).find(([f]) => f === field)[1].short;
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
     const desc = [j.phone && 'Phone: ' + j.phone, j.address, j.notes].filter(Boolean).join('\n');
     const lines = [
@@ -1133,7 +1152,7 @@ a { color: var(--link); text-decoration: none; }
       .filter(j => !q || [j.customerName, j.jobDescription, j.address].some(v => (v || '').toLowerCase().includes(q)));
     if (!S.jobs.length) { box.innerHTML = `<div class="empty"><div class="ico">💼</div><b>No jobs yet</b>Tap + to add your first customer job.</div>`; return; }
     if (!jobs.length) { box.innerHTML = `<div class="empty"><b>No results</b>Nothing matches "${esc(S.jobSearch)}".</div>`; return; }
-    box.innerHTML = `<div class="group">${jobs.map(j => {
+    box.innerHTML = `${jobs.map(j => {
       const call = phoneUrl(j.phone), dir = directionsUrl(j);
       return swipeRow(`<div class="jobrow">
         <div class="top"><span class="name">${esc(j.customerName)}</span>${statusPill(j.status)}</div>
@@ -1141,8 +1160,8 @@ a { color: var(--link); text-decoration: none; }
         ${j.address ? `<div class="addr">📍 ${esc(j.address)}</div>` : ''}
         ${dateRows(j)}
         <div class="acts">${call ? `<a class="btn prim small" href="${call}">📞 Call</a>` : ''}${dir ? `<a class="btn tint small" href="${dir}" target="_blank" rel="noopener">➤ Directions</a>` : ''}<button type="button" class="btn tint small" data-sheet="${esc(j.id)}">🖨️ Job sheet</button></div>
-      </div>`, [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }], j.id);
-    }).join('')}</div><div class="sf">Swipe left on a job to edit or delete it.</div>`;
+      </div>`, [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }], j.id, 'jobcard');
+    }).join('')}<div class="sf" style="margin-top:0">Swipe left on a job to edit or delete it.</div>`;
     bindSwipes(box, {
       tap: i => openJobEditor(jobs[i].id),
       action: (i, a) => a === 0 ? openJobEditor(jobs[i].id) : requestDeleteJob(jobs[i])
@@ -1172,9 +1191,10 @@ a { color: var(--link); text-decoration: none; }
       quote: job.quotePence === null || job.quotePence === undefined ? '' : Money.plain(job.quotePence),
       rate: Money.plain(job.ratePence === null || job.ratePence === undefined ? S.settings.ratePence : job.ratePence),
       hasCollect: !!job.collectionDate, collect: job.collectionDate || todayISO(), hasDeliver: !!job.deliveryDate, deliver: job.deliveryDate || todayISO(),
+      collectType: job.collectionType === 'dropoff' ? 'dropoff' : 'collect', deliverType: job.deliveryType === 'pickup' ? 'pickup' : 'deliver',
       address: job.address || '', notes: job.notes || ''
     } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
-          hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), address: '', notes: '' };
+          hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', address: '', notes: '' };
     let location = job ? LocationEditing.load(job) : null;
     let mini = null;
 
@@ -1188,16 +1208,19 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Job</div><div class="group">
         <div class="row"><textarea data-f="jobDescription" placeholder="Job / item description" rows="2" style="min-height:44px"></textarea></div>
         <div class="row"><span>Status</span><select data-f="status" style="width:auto"><option>New</option><option>In Progress</option><option>Completed</option></select></div>
-        <div class="row"><span>Quoted price</span><input class="inp right" inputmode="decimal" data-f="quote" placeholder="${esc(Money.format(0, cur()).replace(/0/g, '').trim() || '£')}0.00" style="max-width:50%"></div></div>
+        <div class="row"><span>Quoted price</span><input class="inp right" inputmode="decimal" data-f="quote" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div></div>
       <div class="group" style="margin-top:20px">
         <div class="row"><span>Labour rate per hour</span><input class="inp right" inputmode="decimal" data-f="rate" style="max-width:40%"></div>
         <div class="row" id="je-cover" style="display:none"><span>Quote covers</span><span class="v num" id="je-covers"></span></div></div>
       <div class="sf">Used for this job's time allowance and for new time logged to it. Changing it never alters time already logged, and changing your default rate never alters this job.</div>
       <div class="sh">Dates</div><div class="group">
-        <div class="row"><span>Collection date</span>${switchHTML('hasCollect')}</div>
-        <div class="row" id="je-collect-row"><span>Collect on</span><input type="date" data-f="collect" style="width:auto"></div>
-        <div class="row"><span>Due / delivery date</span>${switchHTML('hasDeliver')}</div>
-        <div class="row" id="je-deliver-row"><span>Deliver on</span><input type="date" data-f="deliver" style="width:auto"></div></div>
+        <div class="row"><span>Collection / drop-off date</span>${switchHTML('hasCollect')}</div>
+        <div class="row" id="je-collect-type"><div class="seg segrow" data-seg="collectType"><button type="button" data-v="collect">We collect</button><button type="button" data-v="dropoff">Customer drops off</button></div></div>
+        <div class="row" id="je-collect-row"><span id="je-collect-lbl">Collect on</span><input type="date" data-f="collect" style="width:auto"></div>
+        <div class="row"><span>Delivery / pick-up date</span>${switchHTML('hasDeliver')}</div>
+        <div class="row" id="je-deliver-type"><div class="seg segrow" data-seg="deliverType"><button type="button" data-v="deliver">We deliver</button><button type="button" data-v="pickup">Customer picks up</button></div></div>
+        <div class="row" id="je-deliver-row"><span id="je-deliver-lbl">Deliver on</span><input type="date" data-f="deliver" style="width:auto"></div></div>
+      <div class="sf">Switch a date off if it isn't needed. Choose who moves the item: you, or the customer.</div>
       <div class="sh">Address</div><div class="group" id="je-addr">
         <div class="row"><textarea data-f="address" placeholder="Address" rows="2" style="min-height:44px"></textarea></div>
         <div class="row btnrow tap" id="je-find"></div>
@@ -1216,6 +1239,7 @@ a { color: var(--link); text-decoration: none; }
         update();
       });
     });
+    body.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.onclick = () => { f[seg.dataset.seg] = b.dataset.v; update(); }));
     body.querySelector('#je-find').onclick = () => openAddressSearch(f.address, cand => {
       location = LocationEditing.selecting(cand);
       f.address = cand.formattedAddress;
@@ -1231,7 +1255,12 @@ a { color: var(--link); text-decoration: none; }
       body.querySelector('#je-cover').style.display = cover !== null ? '' : 'none';
       if (cover !== null) body.querySelector('#je-covers').textContent = Duration.decimalHours(cover) + ' hrs';
       body.querySelector('#je-collect-row').style.display = f.hasCollect ? '' : 'none';
+      body.querySelector('#je-collect-type').style.display = f.hasCollect ? '' : 'none';
       body.querySelector('#je-deliver-row').style.display = f.hasDeliver ? '' : 'none';
+      body.querySelector('#je-deliver-type').style.display = f.hasDeliver ? '' : 'none';
+      body.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', f[seg.dataset.seg] === b.dataset.v)));
+      body.querySelector('#je-collect-lbl').textContent = DATE_KINDS[f.collectType].on;
+      body.querySelector('#je-deliver-lbl').textContent = DATE_KINDS[f.deliverType].on;
       body.querySelector('#je-find').innerHTML = `🔍 ${location ? 'Search again' : 'Find address'}`;
       const locBox = body.querySelector('#je-loc');
       const key = location ? `${location.latitude},${location.longitude},${location.precision},${location.pinMoved}` : '';
@@ -1279,6 +1308,8 @@ a { color: var(--link); text-decoration: none; }
       target.notes = f.notes.trim();
       target.collectionDate = f.hasCollect ? f.collect : null;
       target.deliveryDate = f.hasDeliver ? f.deliver : null;
+      target.collectionType = f.collectType;
+      target.deliveryType = f.deliverType;
       const q = Money.parsePence(f.quote);
       target.quotePence = q !== null && q >= 0 ? q : null;
       const r = Money.parsePence(f.rate);
@@ -1895,16 +1926,17 @@ a { color: var(--link); text-decoration: none; }
     const LW = 112, dash = '—';
     const info = [
       ['Status', job.status], ['Phone', job.phone || dash], ['Address', job.address || dash],
-      ['Collection date', job.collectionDate ? longDay(job.collectionDate) : dash],
-      ['Due / delivery date', job.deliveryDate ? longDay(job.deliveryDate) : dash],
+      [dateFields(job)[0][1].long, job.collectionDate ? longDay(job.collectionDate) : dash],
+      [dateFields(job)[1][1].long, job.deliveryDate ? longDay(job.deliveryDate) : dash],
       ['Notes / job spec', job.notes || dash]
     ];
     info.forEach(([k, v], i) => {
       const lines = wrap(v, W - LW - 12, 9, i === 0, i === 5 ? 4 : 2);
-      const h = lines.length * 11.5 + 6;
+      const labels = wrap(k, LW - 12, 8.5, true, 2);          // long labels wrap inside their own column
+      const h = Math.max(lines.length, labels.length) * 11.5 + 6;
       box(M, y, LW, h, SHADE, EDGE);
       box(M + LW, y, W - LW, h, null, EDGE);
-      text(M + 6, y + 12, k, 8.5, true);
+      labels.forEach((ln, j) => text(M + 6, y + 12 + j * 11.5, ln, 8.5, true));
       lines.forEach((ln, j) => text(M + LW + 6, y + 12 + j * 11.5, ln, 9, i === 0));
       y += h;
     });
@@ -2023,8 +2055,8 @@ a { color: var(--link); text-decoration: none; }
           <tr><th>Status</th><td><b>${esc(job.status)}</b></td></tr>
           <tr><th>Phone</th><td>${job.phone ? esc(job.phone) : dash}</td></tr>
           <tr><th>Address</th><td>${job.address ? esc(job.address) : dash}</td></tr>
-          <tr><th>Collection date</th><td>${job.collectionDate ? esc(longDay(job.collectionDate)) : dash}</td></tr>
-          <tr><th>Due / delivery date</th><td>${job.deliveryDate ? esc(longDay(job.deliveryDate)) : dash}</td></tr>
+          <tr><th>${esc(dateFields(job)[0][1].long)}</th><td>${job.collectionDate ? esc(longDay(job.collectionDate)) : dash}</td></tr>
+          <tr><th>${esc(dateFields(job)[1][1].long)}</th><td>${job.deliveryDate ? esc(longDay(job.deliveryDate)) : dash}</td></tr>
           <tr><th>Notes / job spec</th><td>${job.notes ? esc(job.notes).replace(/\n/g, '<br>') : dash}</td></tr>
         </table>
         <h2>Time logged</h2>
