@@ -138,7 +138,7 @@ a { color: var(--link); text-decoration: none; }
 
 /* Swipe to reveal */
 .swipe { position: relative; overflow: hidden; }
-.swipe .acts-behind { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
+.swipe .acts-behind { position: absolute; top: 0; right: 0; bottom: 0; display: flex; visibility: hidden; }
 .swipe .acts-behind button { border: 0; color: #fff; width: 80px; font-size: 14px; font-weight: 600; }
 .swipe .front { position: relative; background: var(--card); transition: transform .2s ease-out; }
 .swipe + .swipe .front::before, .swipe + .swipe::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep); z-index: 2; }
@@ -233,6 +233,44 @@ a { color: var(--link); text-decoration: none; }
   box-shadow: 0 2px 4px rgba(0,0,0,.25); transition: transform .2s; }
 .sw input:checked + span { background: var(--green); }
 .sw input:checked + span::before { transform: translateX(20px); }
+
+/* Worked today, Coming up, job-card dates */
+.timer-top .wt { text-align: right; }
+.wtl { font-size: 10.5px; color: var(--sub); letter-spacing: .4px; text-transform: uppercase; }
+.wtv { font-size: 15px; font-weight: 700; }
+.uprow { display: flex; justify-content: space-between; gap: 10px; padding: 12px 0; border-top: .5px solid var(--sep); cursor: pointer; font-size: 16px; }
+.cap + .uprow { border-top: 0; margin-top: 4px; }
+.daterow { font-size: 14px; margin-top: 5px; }
+.minilink { border: 0; background: none; color: var(--link); font-size: 14px; font-weight: 600; padding: 4px 0 4px 8px; cursor: pointer; }
+.swipe.flash .front { box-shadow: inset 0 0 0 2px var(--blue); }
+.jobrow .acts { flex-wrap: wrap; }
+
+/* Job sheet preview: always printed-paper colours */
+.paper { background: #fff; color: #111; margin: 14px 12px; padding: 18px 16px 22px; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.12); font-size: 14px; }
+.paper h1 { font-size: 22px; margin: 14px 0 2px; }
+.paper h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 1.5px solid #111; }
+.ps-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #1B365D; padding-bottom: 10px; }
+.ps-brand { display: flex; gap: 9px; align-items: center; }
+.ps-brand img { width: 32px; height: 32px; border-radius: 7px; }
+.ps-name { font-weight: 700; color: #1B365D; font-size: 17px; }
+.ps-sub { font-size: 12px; color: #666; }
+.ps-job { color: #1B365D; font-weight: 700; }
+.ps-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+.ps-table th, .ps-table td { border: 1px solid #c8c8cf; padding: 6px 7px; text-align: left; vertical-align: top; }
+.ps-table th { background: #f3f3f8; font-weight: 700; }
+.ps-info th { width: 36%; }
+.ps-table .n { text-align: right; }
+.ps-none { color: #777; font-size: 13px; margin-top: 6px; }
+.ps-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
+.ps-card { background: #f3f3f8; border: 1px solid #c8c8cf; border-radius: 6px; padding: 8px; min-width: 0; }
+.ps-card .k { font-size: 9.5px; font-weight: 700; color: #666; text-transform: uppercase; }
+.ps-card .v { font-size: 17px; font-weight: 700; margin: 3px 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ps-card .s { font-size: 10px; color: #666; }
+.ps-card.profit { background: #e8f6ec; border-color: #1c803c; } .ps-card.profit .k, .ps-card.profit .v { color: #1c803c; }
+.ps-card.loss { background: #fdecec; border-color: #c42020; } .ps-card.loss .k, .ps-card.loss .v { color: #c42020; }
+.ps-rates div { display: flex; gap: 10px; font-variant-numeric: tabular-nums; padding: 2px 0; }
+.ps-rates span:nth-child(1) { flex: 1; } .ps-rates span:nth-child(2) { color: #666; } .ps-rates span:nth-child(3) { min-width: 80px; text-align: right; }
+.ps-lines div { border-bottom: 1px solid #c8c8cf; height: 24px; }
 
 </style>
 </head>
@@ -754,15 +792,18 @@ a { color: var(--link); text-decoration: none; }
   }
 
   // Swipe left to reveal actions (Edit / Delete), like iOS lists.
-  function swipeRow(frontHTML, actions) {
-    return `<div class="swipe"><div class="acts-behind">${actions.map((a, i) => `<button data-sw="${i}" style="background:${a.color}">${esc(a.label)}</button>`).join('')}</div>
+  function swipeRow(frontHTML, actions, id) {
+    return `<div class="swipe"${id ? ` data-jid="${esc(id)}"` : ''}><div class="acts-behind">${actions.map((a, i) => `<button data-sw="${i}" style="background:${a.color}">${esc(a.label)}</button>`).join('')}</div>
       <div class="front">${frontHTML}</div></div>`;
   }
   let openSwipe = null;
   function bindSwipes(container, handlers) {
     container.querySelectorAll('.swipe').forEach((sw, idx) => {
       const front = sw.querySelector('.front');
+      const behind = sw.querySelector('.acts-behind');
       const width = sw.querySelectorAll('.acts-behind button').length * 80;
+      const reveal = on => { behind.style.visibility = on ? 'visible' : 'hidden'; };
+      front.addEventListener('transitionend', () => { if (!front.style.transform || front.style.transform === 'translateX(0px)') reveal(false); });
       let x0 = 0, y0 = 0, dx = 0, base = 0, drag = false, decided = false;
       front.addEventListener('touchstart', e => {
         if (openSwipe && openSwipe !== front) { openSwipe.style.transform = ''; openSwipe = null; }
@@ -773,6 +814,7 @@ a { color: var(--link); text-decoration: none; }
         if (!drag) return;
         const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
         if (!decided) { if (Math.abs(mx) < 8 && Math.abs(my) < 8) return; decided = true; if (Math.abs(my) > Math.abs(mx)) { drag = false; front.style.transition = ''; return; } }
+        reveal(true);
         dx = Math.max(-width - 20, Math.min(0, base + mx)); front.style.transform = `translateX(${dx}px)`;
       }, { passive: true });
       const end = () => { if (!drag) return; drag = false; front.style.transition = '';
@@ -780,7 +822,7 @@ a { color: var(--link); text-decoration: none; }
       front.addEventListener('touchend', end); front.addEventListener('touchcancel', end);
       front.addEventListener('click', e => {
         if (openSwipe === front) { e.stopPropagation(); e.preventDefault(); front.style.transform = ''; openSwipe = null; return; }
-        if (e.target.closest('a')) return;
+        if (e.target.closest('a, button')) return;
         handlers.tap && handlers.tap(idx);
       });
       sw.querySelectorAll('.acts-behind button').forEach(b => b.addEventListener('click', () => {
@@ -808,6 +850,7 @@ a { color: var(--link); text-decoration: none; }
   }
   function refreshAll() {
     renderTimerDynamic();
+    renderComingUp();
     renderJobList();
     if (activeTab === 'map') renderMapTab();
     stack.forEach(o => o.refresh && o.refresh());
@@ -846,7 +889,8 @@ a { color: var(--link); text-decoration: none; }
     $('tab-timer').innerHTML = `
       <div class="large">Timer</div>
       <div class="card">
-        <div class="timer-top"><span id="wallclock"></span><span id="tstatus"></span></div>
+        <div class="timer-top"><span id="wallclock"></span><span id="tstatus"></span>
+          <div class="wt"><div class="wtl">Worked today</div><div class="wtv num" id="tworked">00:00:00</div></div></div>
         <select class="picker" id="tpick" aria-label="Job"></select>
         <div class="ring">
           <svg viewBox="0 0 120 120" aria-hidden="true">
@@ -865,10 +909,12 @@ a { color: var(--link); text-decoration: none; }
         <div class="hint" id="tsaved" style="text-align:center;margin-top:10px"></div>
       </div>
       <div id="tbudget"></div>
-      <div class="card" id="ttoday"></div>`;
+      <div class="card" id="ttoday"></div>
+      <div class="card" id="tcoming"></div>`;
     $('tpick').addEventListener('change', e => { S.timerSel = e.target.value || null; renderTimerDynamic(); });
     $('tmain').addEventListener('click', () => S.shift.isRunning ? stopShift() : startShift());
     renderTimerDynamic();
+    renderComingUp();
   }
 
   function renderTimerDynamic() {
@@ -923,6 +969,8 @@ a { color: var(--link); text-decoration: none; }
     const secs = todayLogs.reduce((s, l) => s + l.workedSeconds, 0) + liveSecs;
     const livePence = sh.isRunning && sh.jobID ? Money.earningsPence(Math.floor(liveSecs), activeRate()) : 0;
     const pence = todayLogs.reduce((s, l) => s + TM.entryEarnings(entryOf(l)), 0) + livePence;
+    $('tworked').textContent = Duration.clock(secs);
+    if (comingDay !== startOfDay(now)) renderComingUp();   // "today / tomorrow" labels roll over at midnight
     $('ttoday').innerHTML = `<div class="cap">Today</div><div class="two" style="margin-top:10px">
       <div><div class="hint">Hours worked</div><div class="big">${Duration.hours(secs)}</div></div>
       <div style="text-align:right"><div class="hint">Earnings</div><div class="big" style="color:var(--green-t)">${fmt(pence)}</div></div></div>`;
@@ -945,6 +993,105 @@ a { color: var(--link); text-decoration: none; }
       inner = `<div class="hint" style="margin-top:8px">No quoted price set. Add one to see how many hours it covers.</div>`;
     }
     return `<div class="card"><div class="cap">Current job</div><div style="font-weight:600;margin-top:4px">${esc(job.customerName)} · ${esc(job.jobDescription)}</div>${inner}</div>`;
+  }
+
+  // ---------- Dates: collection / delivery ----------
+  const DATE_FIELDS = [['collectionDate', 'Collect', '📥'], ['deliveryDate', 'Deliver', '📦']];
+  function dayDiff(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const n = new Date();
+    return Math.round((new Date(y, m - 1, d) - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 86400000);
+  }
+  // Dates are spelled out by hand so they read the same in every browser ("Mon 21 Sep")
+  const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const fromISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const prettyDay = s => { const d = fromISO(s); return `${WD[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`; };
+  const longDay = s => { const d = fromISO(s); return `${WD[d.getDay()]} ${d.getDate()} ${MONTH[d.getMonth()]} ${d.getFullYear()}`; };
+  const whenLabel = diff => diff < 0 ? `${-diff} day${diff === -1 ? '' : 's'} overdue` : diff === 0 ? 'today' : diff === 1 ? 'tomorrow' : `in ${diff} days`;
+  const dateColor = diff => diff < 0 ? 'var(--red)' : diff <= 1 ? 'var(--orange-t)' : 'var(--sub)';
+
+  function dateRows(j) {
+    return DATE_FIELDS.filter(([f]) => j[f]).map(([f, label, icon]) => {
+      const open = j.status !== 'Completed', diff = dayDiff(j[f]);
+      return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${icon} ${label}: <b>${esc(prettyDay(j[f]))}</b>${open ? ' · ' + whenLabel(diff) : ''}
+        <button type="button" class="minilink" data-cal="${esc(j.id)}" data-f="${f}">+ Calendar</button></div>`;
+    }).join('');
+  }
+
+  let comingDay = null;
+  function renderComingUp() {
+    const box = $('tcoming'); if (!box) return;
+    comingDay = startOfDay(Date.now());
+    const ev = [];
+    S.jobs.forEach(j => {
+      if (j.status === 'Completed') return;
+      DATE_FIELDS.forEach(([f, label, icon]) => { if (j[f]) ev.push({ j, label, icon, diff: dayDiff(j[f]) }); });
+    });
+    ev.sort((a, b) => a.diff - b.diff);
+    box.innerHTML = `<div class="cap">Coming up</div>` + (ev.length
+      ? ev.slice(0, 6).map(e => `<div class="uprow" data-jump="${esc(e.j.id)}"><span>${e.icon} <b>${esc(e.label)}</b> · ${esc(e.j.customerName)}</span>
+          <span style="color:${dateColor(e.diff)};font-weight:600;white-space:nowrap">${whenLabel(e.diff)}</span></div>`).join('')
+      : '<div class="hint" style="margin-top:8px">No dates set yet. Add a collection or delivery date to a job.</div>');
+    box.querySelectorAll('[data-jump]').forEach(r => r.onclick = () => jumpToJob(r.dataset.jump));
+  }
+  function jumpToJob(id) {
+    S.jobSearch = '';
+    showTab('jobs');
+    renderJobs();
+    setTimeout(() => {
+      const el = document.querySelector(`#jlist [data-jid="${CSS.escape(id)}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 1800);
+    }, 80);
+  }
+
+  // Shares a file (Save to Files, Print, AirDrop, Mail…) or downloads it if sharing isn't available
+  async function shareOrDownload(name, type, content, title) {
+    try {
+      const file = new File([content], name, { type });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title });
+        return 'shared';
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return 'cancelled';
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([content], { type }));
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      return 'downloaded';
+    } catch (e) { return 'failed'; }
+  }
+  const brandName = () => (S.settings.businessName || '').trim() || 'TradeMate';
+  const icsEscape = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  async function addToCalendar(id, field) {
+    const j = jobById(id);
+    if (!j || !j[field]) return;
+    const [y, m, d] = j[field].split('-').map(Number);
+    const ymd = dt => `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}`;
+    const verb = field === 'collectionDate' ? 'Collect' : 'Deliver';
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+    const desc = [j.phone && 'Phone: ' + j.phone, j.address, j.notes].filter(Boolean).join('\n');
+    const lines = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${brandName()}//EN`, 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+      `UID:${j.id}-${field}@trademate`, `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${ymd(new Date(y, m - 1, d))}`, `DTEND;VALUE=DATE:${ymd(new Date(y, m - 1, d + 1))}`,
+      `SUMMARY:${icsEscape(`${verb}: ${j.customerName} - ${j.jobDescription}`)}`,
+      `DESCRIPTION:${icsEscape(desc)}`,
+      j.address ? `LOCATION:${icsEscape(j.address)}` : '',
+      'BEGIN:VALARM', 'TRIGGER:-PT15H', 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(`Tomorrow: ${verb.toLowerCase()} ${j.customerName}`)}`, 'END:VALARM',
+      'END:VEVENT', 'END:VCALENDAR'
+    ].filter(Boolean);
+    const res = await shareOrDownload(`${verb.toLowerCase()}-${j.customerName.replace(/[^A-Za-z0-9]+/g, '-')}.ics`, 'text/calendar', lines.join('\r\n'), `${verb}: ${j.customerName}`);
+    if (res === 'failed') toast("Couldn't create the calendar event");
+    else if (res === 'downloaded') toast('Open the downloaded file to add it to Calendar');
   }
 
   function startShift() {
@@ -992,13 +1139,16 @@ a { color: var(--link); text-decoration: none; }
         <div class="top"><span class="name">${esc(j.customerName)}</span>${statusPill(j.status)}</div>
         <div class="desc">${esc(j.jobDescription)}</div>
         ${j.address ? `<div class="addr">📍 ${esc(j.address)}</div>` : ''}
-        ${call || dir ? `<div class="acts">${call ? `<a class="btn prim small" href="${call}">📞 Call</a>` : ''}${dir ? `<a class="btn tint small" href="${dir}" target="_blank" rel="noopener">➤ Directions</a>` : ''}</div>` : ''}
-      </div>`, [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }]);
+        ${dateRows(j)}
+        <div class="acts">${call ? `<a class="btn prim small" href="${call}">📞 Call</a>` : ''}${dir ? `<a class="btn tint small" href="${dir}" target="_blank" rel="noopener">➤ Directions</a>` : ''}<button type="button" class="btn tint small" data-sheet="${esc(j.id)}">🖨️ Job sheet</button></div>
+      </div>`, [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }], j.id);
     }).join('')}</div><div class="sf">Swipe left on a job to edit or delete it.</div>`;
     bindSwipes(box, {
       tap: i => openJobEditor(jobs[i].id),
       action: (i, a) => a === 0 ? openJobEditor(jobs[i].id) : requestDeleteJob(jobs[i])
     });
+    box.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => openJobSheet(b.dataset.sheet));
+    box.querySelectorAll('[data-cal]').forEach(b => b.onclick = () => addToCalendar(b.dataset.cal, b.dataset.f));
   }
   function requestDeleteJob(job) {
     if (S.shift.isRunning && S.shift.jobID === job.id) { actionSheet("Can't delete", 'Stop the timer before deleting this job.', [{ label: 'OK', role: 'cancel' }]); return; }
@@ -1631,6 +1781,277 @@ a { color: var(--link); text-decoration: none; }
     };
   }
   function stepper(k) { return `<span class="stepper"><button data-st="${k}:-1" aria-label="Less">−</button><button data-st="${k}:1" aria-label="More">+</button></span>`; }
+
+  // =========================================================================================
+  // JOB SHEET — preview + one-page A4 PDF (ported from the older TradeMate web app)
+  // =========================================================================================
+  const PDF_W = 595.28, PDF_H = 841.89;
+  const HELV_W = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+  const HELV_B_W = [278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+  const WINANSI = { '€': 0x80, '‚': 0x82, 'ƒ': 0x83, '„': 0x84, '…': 0x85, '†': 0x86, '‡': 0x87, 'ˆ': 0x88, '‰': 0x89, 'Š': 0x8A, '‹': 0x8B, 'Œ': 0x8C, 'Ž': 0x8E, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '•': 0x95, '–': 0x96, '—': 0x97, '˜': 0x98, '™': 0x99, 'š': 0x9A, '›': 0x9B, 'œ': 0x9C, 'ž': 0x9E, 'Ÿ': 0x9F };
+  function pdfWinAnsi(str) {
+    const out = [];
+    for (const ch of String(str === null || str === undefined ? '' : str)) {
+      const cp = ch.codePointAt(0);
+      if (cp === 9 || cp === 10 || cp === 13) out.push(32);
+      else if (cp >= 32 && cp < 127) out.push(cp);
+      else if (cp >= 160 && cp <= 255) out.push(cp);
+      else if (WINANSI[ch] !== undefined) out.push(WINANSI[ch]);
+      else if (cp >= 0x2190 || cp === 0x200D || cp === 0xFE0F) continue;   // emoji and symbols are dropped
+      else out.push(63);
+    }
+    return out;
+  }
+  function pdfWidth(str, size, bold) {
+    const table = bold ? HELV_B_W : HELV_W;
+    return pdfWinAnsi(str).reduce((s, b) => s + (b >= 32 && b <= 126 ? table[b - 32] : 556), 0) * size / 1000;
+  }
+  function jpegInfo(b) {
+    if (!b || b[0] !== 0xFF || b[1] !== 0xD8) return null;
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xFF) { i++; continue; }
+      const m = b[i + 1];
+      if (m === 0xFF) { i++; continue; }
+      if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) return { h: (b[i + 5] << 8) | b[i + 6], w: (b[i + 7] << 8) | b[i + 8], comps: b[i + 9] };
+      i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+    }
+    return null;
+  }
+  const MARK_JPEG_B64 = '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';
+  let markBytes = null;
+  function markJpeg() {
+    if (!markBytes) { const bin = atob(MARK_JPEG_B64); markBytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) markBytes[i] = bin.charCodeAt(i); }
+    return markBytes;
+  }
+  const sheetDate = ms => { const d = new Date(ms); return `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`; };
+  const moneyPdf = p => Money.format(p, cur());
+
+  /** Profit / loss wording shared by the preview and the PDF. */
+  function varianceInfo(b) {
+    if (b.variancePence === null) return { tag: 'NO QUOTE', value: '—', note: 'set a quoted price to compare', state: 'none' };
+    if (b.variancePence > 0) return { tag: 'PROFIT', value: Money.formatSigned(b.variancePence, cur()), note: `${Money.percent(Math.abs(b.varianceBasisPoints))} under quote`, state: 'profit' };
+    if (b.variancePence < 0) return { tag: 'LOSS', value: Money.formatSigned(b.variancePence, cur()), note: `${Money.percent(Math.abs(b.varianceBasisPoints))} over quote`, state: 'loss' };
+    return { tag: 'ON QUOTE', value: Money.formatSigned(0, cur()), note: 'labour exactly on quote', state: 'even' };
+  }
+
+  function buildJobPdf(job, logs, b) {
+    const ops = [], images = [];
+    const M = 34, W = PDF_W - 2 * M;
+    const GREY = [102, 102, 102], BLUE = [27, 54, 93], INK = [17, 17, 17], EDGE = [190, 190, 197], SHADE = [243, 243, 248];
+    const VAR_RED = [196, 32, 32], VAR_GREEN = [28, 128, 60], TINT_RED = [253, 236, 236], TINT_GREEN = [232, 246, 236];
+    const Y = y => (PDF_H - y).toFixed(2), f = n => Number(n).toFixed(2);
+    const hex = s => '<' + pdfWinAnsi(s).map(v => v.toString(16).padStart(2, '0')).join('') + '>';
+    const col = (rgb, stroke) => rgb.map(v => (v / 255).toFixed(3)).join(' ') + (stroke ? ' RG' : ' rg');
+    const text = (x, base, s, size, bold, rgb) => { ops.push(`BT ${col(rgb || INK)} /${bold ? 'F2' : 'F1'} ${size} Tf ${f(x)} ${Y(base)} Td ${hex(s)} Tj ET`); };
+    const box = (x, top, w, h, fill, stroke, lw) => {
+      ops.push(`q ${fill ? col(fill) + ' ' : ''}${stroke ? col(stroke, true) + ' ' + (lw || 0.5) + ' w ' : ''}${f(x)} ${Y(top + h)} ${f(w)} ${f(h)} re ${fill && stroke ? 'B' : fill ? 'f' : 'S'} Q`);
+    };
+    const hline = (x1, x2, top, rgb, lw) => { ops.push(`q ${col(rgb, true)} ${lw} w ${f(x1)} ${Y(top)} m ${f(x2)} ${Y(top)} l S Q`); };
+    const tw = pdfWidth;
+    const fit = (s, maxW, size, bold) => {
+      s = String(s || '');
+      if (tw(s, size, bold) <= maxW) return s;
+      while (s.length > 1 && tw(s + '…', size, bold) > maxW) s = s.slice(0, -1);
+      return s + '…';
+    };
+    const wrap = (s, maxW, size, bold, maxLines) => {
+      const lines = [];
+      for (const para of String(s || '').split(/\r?\n/)) {
+        let line = '';
+        for (let word of para.split(/\s+/).filter(Boolean)) {
+          while (tw(word, size, bold) > maxW) {
+            let k = word.length;
+            while (k > 1 && tw(word.slice(0, k), size, bold) > maxW) k--;
+            if (line) { lines.push(line); line = ''; }
+            lines.push(word.slice(0, k)); word = word.slice(k);
+          }
+          const t = line ? line + ' ' + word : word;
+          if (tw(t, size, bold) <= maxW) line = t; else { lines.push(line); line = word; }
+        }
+        lines.push(line);
+      }
+      if (maxLines && lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = fit(lines[maxLines - 1] + '…', maxW, size, bold); }
+      return lines.length ? lines : [''];
+    };
+    const heading = (x, y, w, s) => { text(x, y + 9, s, 8.5, true); hline(x, x + w, y + 13, INK, 1); };
+
+    // Header
+    let y = M;
+    const mark = markJpeg(), inf = jpegInfo(mark);
+    if (inf) { images.push({ bytes: mark, w: inf.w, h: inf.h, comps: inf.comps }); ops.push(`q 26 0 0 26 ${f(M)} ${Y(y + 26)} cm /Im1 Do Q`); }
+    text(M + 33, y + 13, fit(brandName(), W * 0.55, 15, true), 15, true, BLUE);
+    text(M + 33, y + 25, 'Job sheet', 8.5, false, GREY);
+    const printed = 'Printed ' + sheetDate(Date.now());
+    text(PDF_W - M - tw(printed, 8.5, false), y + 13, printed, 8.5, false, GREY);
+    hline(M, PDF_W - M, y + 31, BLUE, 2);
+    y += 42;
+    text(M, y + 15, fit(job.customerName, W, 19, true), 19, true);
+    y += 22;
+    text(M, y + 11, fit(job.jobDescription, W, 11.5, true), 11.5, true, BLUE);
+    y += 19;
+
+    // Customer details
+    const LW = 112, dash = '—';
+    const info = [
+      ['Status', job.status], ['Phone', job.phone || dash], ['Address', job.address || dash],
+      ['Collection date', job.collectionDate ? longDay(job.collectionDate) : dash],
+      ['Due / delivery date', job.deliveryDate ? longDay(job.deliveryDate) : dash],
+      ['Notes / job spec', job.notes || dash]
+    ];
+    info.forEach(([k, v], i) => {
+      const lines = wrap(v, W - LW - 12, 9, i === 0, i === 5 ? 4 : 2);
+      const h = lines.length * 11.5 + 6;
+      box(M, y, LW, h, SHADE, EDGE);
+      box(M + LW, y, W - LW, h, null, EDGE);
+      text(M + 6, y + 12, k, 8.5, true);
+      lines.forEach((ln, j) => text(M + LW + 6, y + 12 + j * 11.5, ln, 9, i === 0));
+      y += h;
+    });
+    y += 12;
+
+    // Time logged
+    heading(M, y, W, 'TIME LOGGED');
+    y += 19;
+    const cols = [{ t: 'Date', w: 88 }, { t: 'Hours', w: 50, r: 1 }, { t: 'Break', w: 56, r: 1 }, { t: 'Notes', w: W - 194 }];
+    const cell = (i, x, top, h, s, bold, fill) => {
+      const cc = cols[i];
+      box(x, top, cc.w, h, fill || null, EDGE);
+      const t = fit(s, cc.w - 10, 8.5, bold);
+      text(cc.r ? x + cc.w - 5 - tw(t, 8.5, bold) : x + 5, top + 10.5, t, 8.5, bold);
+    };
+    const rowOf = (vals, top, bold, fill) => { let x = M; vals.forEach((v, i) => { cell(i, x, top, 15, v, bold, fill); x += cols[i].w; }); };
+    if (logs.length) {
+      rowOf(cols.map(cc => cc.t), y, true, SHADE); y += 15;
+      const MAXROWS = 16, shown = logs.slice(-MAXROWS), hidden = logs.length - shown.length;
+      if (hidden > 0) { text(M + 5, y + 10.5, `… ${hidden} earlier ${hidden === 1 ? 'entry' : 'entries'} not listed (included in the total)`, 8, false, GREY); y += 15; }
+      shown.forEach(l => { rowOf([sheetDate(l.start), Duration.decimalHours(l.workedSeconds), Math.round(l.breakSeconds / 60) + ' min', l.notes || ''], y, false); y += 15; });
+      rowOf(['Total', Duration.decimalHours(logs.reduce((s, l) => s + l.workedSeconds, 0)), '', ''], y, true, SHADE); y += 15;
+    } else {
+      text(M, y + 9, 'No time logged for this job yet.', 9, false, GREY); y += 14;
+    }
+
+    // Quote vs actual: quoted price, labour recorded (at each entry's saved rate), variance
+    const v = varianceInfo(b);
+    const vRgb = v.state === 'loss' ? VAR_RED : v.state === 'profit' ? VAR_GREEN : INK;
+    const vFill = v.state === 'loss' ? TINT_RED : v.state === 'profit' ? TINT_GREEN : SHADE;
+    const bw = (W - 12) / 3, bh = 44;
+    y += 8;
+    [
+      { k: 'QUOTED PRICE (REVENUE)', v: b.quotePence === null ? 'Not set' : moneyPdf(b.quotePence), s: 'agreed with customer', rgb: b.quotePence === null ? GREY : INK },
+      { k: 'LABOUR RECORDED', v: moneyPdf(b.recordedLaborPence), s: Duration.decimalHours(b.workedSeconds) + ' hrs logged', rgb: INK },
+      { k: 'VARIANCE · ' + v.tag, v: v.value, s: v.note, rgb: vRgb, fill: vFill, edge: v.state === 'loss' || v.state === 'profit' ? vRgb : null }
+    ].forEach((c, i) => {
+      const x = M + i * (bw + 6);
+      box(x, y, bw, bh, c.fill || SHADE, c.edge || EDGE, c.edge ? 1.2 : 0.5);
+      text(x + 8, y + 12, c.k, 7, true, c.edge || GREY);
+      text(x + 8, y + 29, fit(c.v, bw - 16, 15, true), 15, true, c.rgb);
+      text(x + 8, y + 39, fit(c.s, bw - 16, 7, false), 7, false, GREY);
+    });
+    y += bh + 12;
+
+    // Rate history and time budget
+    if (b.rateHistory.length) {
+      heading(M, y, W, 'RATE HISTORY');
+      y += 19;
+      b.rateHistory.forEach(l => {
+        text(M, y + 9, `${moneyPdf(l.ratePence)}/hr`, 9, false);
+        const hrs = Duration.decimalHours(l.workedSeconds) + ' h', amt = moneyPdf(l.laborPence);
+        text(M + 180 - tw(hrs, 9, false), y + 9, hrs, 9, false, GREY);
+        text(M + 290 - tw(amt, 9, false), y + 9, amt, 9, false);
+        y += 13;
+      });
+      text(M, y + 8, 'Each time entry keeps the rate it was charged at.', 7.5, false, GREY);
+      y += 16;
+    }
+    const facts = [];
+    if (b.jobRatePence !== null) facts.push(`Current job rate ${moneyPdf(b.jobRatePence)}/hr`);
+    if (b.allowanceSeconds !== null) facts.push(`Time allowance ${Duration.decimalHours(b.allowanceSeconds)} h`);
+    facts.push(`Time used ${Duration.decimalHours(b.workedSeconds)} h`);
+    if (b.remainingSeconds !== null) facts.push(b.remainingSeconds >= 0 ? `${Duration.short(b.remainingSeconds)} remaining` : `Over by ${Duration.short(b.remainingSeconds)}`);
+    if (b.usedBasisPoints !== null) facts.push(`${Money.percent(b.usedBasisPoints)} of budget used`);
+    text(M, y + 9, fit(facts.join('   ·   '), W, 8.5, false), 8.5, false, GREY);
+
+    // Workshop notes (internal sheet: no customer sign-off)
+    const notesTop = PDF_H - M - 74;
+    heading(M, notesTop, W, 'WORKSHOP NOTES');
+    [34, 52, 70].forEach(dy => hline(M, PDF_W - M, notesTop + dy, EDGE, 0.6));
+
+    // Assemble the PDF
+    const enc = new TextEncoder();
+    const chunks = [new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, 0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A])];
+    let offset = chunks[0].length;
+    const offsets = [];
+    const push = d => { const u = typeof d === 'string' ? enc.encode(d) : d; chunks.push(u); offset += u.length; };
+    const obj = (n, parts) => { offsets[n] = offset; push(`${n} 0 obj\n`); parts.forEach(push); push('\nendobj\n'); };
+    const content = enc.encode(ops.join('\n'));
+    const imgRefs = images.map((_, i) => `/Im${i + 1} ${7 + i} 0 R`).join(' ');
+    obj(1, ['<< /Type /Catalog /Pages 2 0 R >>']);
+    obj(2, ['<< /Type /Pages /Kids [3 0 R] /Count 1 >>']);
+    obj(3, [`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PDF_W} ${PDF_H}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> /XObject << ${imgRefs} >> >> /Contents 6 0 R >>`]);
+    obj(4, ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>']);
+    obj(5, ['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>']);
+    obj(6, [`<< /Length ${content.length} >>\nstream\n`, content, '\nendstream']);
+    images.forEach((im, i) => {
+      const cs = im.comps === 1 ? '/DeviceGray' : im.comps === 4 ? '/DeviceCMYK' : '/DeviceRGB';
+      obj(7 + i, [`<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.bytes.length} >>\nstream\n`, im.bytes, '\nendstream']);
+    });
+    const total = 7 + images.length;
+    const xref = offset;
+    push(`xref\n0 ${total}\n0000000000 65535 f \n`);
+    for (let n = 1; n < total; n++) push(String(offsets[n]).padStart(10, '0') + ' 00000 n \n');
+    push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+
+  function openJobSheet(jobId) {
+    const job = jobById(jobId);
+    if (!job) return;
+    const logs = S.logs.filter(l => l.jobId === job.id).sort((a, b) => a.start - b.start);
+    const b = Reporting.budget(job.quotePence, jobEntries(job), job.ratePence);
+    const v = varianceInfo(b);
+    const dash = '<span style="color:#999">—</span>';
+    const ov = pushOverlay('page');
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x aria-label="Close" style="font-size:22px">✕</button>
+      <div class="title">${esc(job.customerName)}</div><button class="linkbtn bold r" data-share>Share</button></div>
+      <div class="body"><div class="paper">
+        <div class="ps-head"><div class="ps-brand"><img src="data:image/jpeg;base64,${MARK_JPEG_B64}" alt="">
+          <div><div class="ps-name">${esc(brandName())}</div><div class="ps-sub">Job sheet</div></div></div>
+          <div class="ps-sub">Printed ${esc(sheetDate(Date.now()))}</div></div>
+        <h1>${esc(job.customerName)}</h1><div class="ps-job">${esc(job.jobDescription)}</div>
+        <table class="ps-table ps-info">
+          <tr><th>Status</th><td><b>${esc(job.status)}</b></td></tr>
+          <tr><th>Phone</th><td>${job.phone ? esc(job.phone) : dash}</td></tr>
+          <tr><th>Address</th><td>${job.address ? esc(job.address) : dash}</td></tr>
+          <tr><th>Collection date</th><td>${job.collectionDate ? esc(longDay(job.collectionDate)) : dash}</td></tr>
+          <tr><th>Due / delivery date</th><td>${job.deliveryDate ? esc(longDay(job.deliveryDate)) : dash}</td></tr>
+          <tr><th>Notes / job spec</th><td>${job.notes ? esc(job.notes).replace(/\n/g, '<br>') : dash}</td></tr>
+        </table>
+        <h2>Time logged</h2>
+        ${logs.length ? `<table class="ps-table"><tr><th>Date</th><th class="n">Hours</th><th class="n">Break</th><th>Notes</th></tr>
+          ${logs.map(l => `<tr><td>${esc(sheetDate(l.start))}</td><td class="n">${Duration.decimalHours(l.workedSeconds)}</td><td class="n">${Math.round(l.breakSeconds / 60)} min</td><td>${esc(l.notes || '')}</td></tr>`).join('')}
+          <tr><td><b>Total</b></td><td class="n"><b>${Duration.decimalHours(logs.reduce((s, l) => s + l.workedSeconds, 0))}</b></td><td></td><td></td></tr></table>`
+          : '<div class="ps-none">No time logged for this job yet.</div>'}
+        <div class="ps-cards">
+          <div class="ps-card"><div class="k">Quoted price (revenue)</div><div class="v">${b.quotePence === null ? '<span style="color:#999;font-size:15px">Not set</span>' : esc(fmt(b.quotePence))}</div><div class="s">agreed with customer</div></div>
+          <div class="ps-card"><div class="k">Labour recorded</div><div class="v">${esc(fmt(b.recordedLaborPence))}</div><div class="s">${Duration.decimalHours(b.workedSeconds)} hrs logged</div></div>
+          <div class="ps-card ${v.state}"><div class="k">Variance · ${v.tag}</div><div class="v">${esc(v.value)}</div><div class="s">${esc(v.note)}</div></div>
+        </div>
+        ${b.rateHistory.length ? `<h2>Rate history</h2><div class="ps-rates">${b.rateHistory.map(l => `<div><span>${esc(fmt(l.ratePence))}/hr</span><span>${Duration.decimalHours(l.workedSeconds)} h</span><span>${esc(fmt(l.laborPence))}</span></div>`).join('')}</div>
+          <div class="ps-none">Each time entry keeps the rate it was charged at.</div>` : ''}
+        <h2>Workshop notes</h2><div class="ps-lines"><div></div><div></div><div></div></div>
+      </div><div class="sf" style="text-align:center">Tap Share for a one-page A4 PDF: Print, Save to Files, AirDrop or Mail.</div></div>`;
+    ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
+    const pdfName = `JobSheet-${job.customerName.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'job'}-${todayISO()}.pdf`;
+    let pdf = null;
+    try { pdf = buildJobPdf(job, logs, b); } catch (e) { pdf = null; }
+    ov.querySelector('[data-share]').onclick = async () => {
+      if (!pdf) { toast("Couldn't create the PDF"); return; }
+      const res = await shareOrDownload(pdfName, 'application/pdf', pdf, 'Job sheet');
+      if (res === 'failed') toast("Couldn't save the PDF");
+      else if (res === 'downloaded') toast('PDF downloaded. Open it from Files to print.');
+    };
+  }
 
   // =========================================================================================
   // Tabs and start-up
