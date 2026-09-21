@@ -713,7 +713,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.5h-4.5"/></svg>Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 32 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 33 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -1486,7 +1486,7 @@
        always appears above a street, and a street above a postcode or town centroid.
        A postcode centroid is only ever offered as a last resort, clearly marked. */
     const PRECISION = { property: 0, street: 1, postcode: 2, area: 3 };
-    const PRECISION_NOTE = { property: '', street: 'street only', postcode: 'postcode area', area: 'approximate area' };
+    const PRECISION_NOTE = { property: '', street: 'pin on street', postcode: 'pin at postcode', area: 'approximate area' };
 
     async function lookupAddress(raw) {
       raw = String(raw || '').trim();
@@ -1519,13 +1519,14 @@
       const fromNominatim = items => (items || []).forEach(item => {
         const a = item.address || {};
         const num = a.house_number || '';
+        const shownNum = num || ((a.road || a.pedestrian || a.footway) ? house : '');   // typed number kept, as in earlier versions
         const street = a.road || a.pedestrian || a.footway || '';
         const local = a.village || a.hamlet || a.suburb || a.neighbourhood || '';
         const post = a.town || a.city || '';
         const town = [local, post].filter(Boolean).filter((v, i, arr) => arr.indexOf(v) === i).join(', ') || a.county || '';
         const precision = rank(!!num, !!street, item.type);
         add({
-          label: buildLabel(num, street, town, a.postcode, a.country),
+          label: buildLabel(shownNum, street, town, a.postcode, a.country),
           lat: parseFloat(item.lat), lng: parseFloat(item.lon),
           precision, importance: item.importance || 0
         });
@@ -1572,7 +1573,7 @@
             if (p.countrycode && p.countrycode !== 'GB') return;
             const street = p.street || (p.osm_key === 'highway' ? p.name : '');
             add({
-              label: buildLabel(p.housenumber || '', street, [p.locality || p.district || '', p.city || p.county || ''].filter(Boolean).join(', '), p.postcode, p.country),
+              label: buildLabel(p.housenumber || (street ? house : ''), street, [p.locality || p.district || '', p.city || p.county || ''].filter(Boolean).join(', '), p.postcode, p.country),
               lat: g.coordinates[1], lng: g.coordinates[0],
               precision: rank(!!p.housenumber, !!street, p.osm_key === 'place' ? 'postcode' : ''),
               importance: 0
@@ -2168,7 +2169,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 32;
+    const APP_VERSION = 33;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
