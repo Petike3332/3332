@@ -280,6 +280,7 @@ a { color: var(--link); text-decoration: none; }
 /* "We collect / Customer drops off" choice inside a list row */
 .seg.segrow { margin: 0; width: 100%; }
 .seg.segrow button { font-size: 13.5px; padding: 7px 4px; }
+.timebox { display: inline-flex; align-items: center; gap: 4px; }
 
 </style>
 </head>
@@ -1028,13 +1029,17 @@ a { color: var(--link); text-decoration: none; }
   const fromISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
   const prettyDay = s => { const d = fromISO(s); return `${WD[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`; };
   const longDay = s => { const d = fromISO(s); return `${WD[d.getDay()]} ${d.getDate()} ${MONTH[d.getMonth()]} ${d.getFullYear()}`; };
+  const timeField = f => f === 'collectionDate' ? 'collectionTime' : 'deliveryTime';
+  const timeOf = (j, f) => j[timeField(f)] || '';
+  const shortWhen = (j, f) => prettyDay(j[f]) + (timeOf(j, f) ? ', ' + timeOf(j, f) : '');
+  const longWhen = (j, f) => longDay(j[f]) + (timeOf(j, f) ? ' at ' + timeOf(j, f) : '');
   const whenLabel = diff => diff < 0 ? `${-diff} day${diff === -1 ? '' : 's'} overdue` : diff === 0 ? 'today' : diff === 1 ? 'tomorrow' : `in ${diff} days`;
   const dateColor = diff => diff < 0 ? 'var(--red)' : diff <= 1 ? 'var(--orange-t)' : 'var(--sub)';
 
   function dateRows(j) {
     return dateFields(j).filter(([f]) => j[f]).map(([f, k]) => {
       const open = j.status !== 'Completed', diff = dayDiff(j[f]);
-      return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${k.icon} ${k.short}: <b>${esc(prettyDay(j[f]))}</b>${open ? ' · ' + whenLabel(diff) : ''}
+      return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${k.icon} ${k.short}: <b>${esc(shortWhen(j, f))}</b>${open ? ' · ' + whenLabel(diff) : ''}
         <button type="button" class="minilink" data-cal="${esc(j.id)}" data-f="${f}">+ Calendar</button></div>`;
     }).join('');
   }
@@ -1046,12 +1051,12 @@ a { color: var(--link); text-decoration: none; }
     const ev = [];
     S.jobs.forEach(j => {
       if (j.status === 'Completed') return;
-      dateFields(j).forEach(([f, k]) => { if (j[f]) ev.push({ j, label: k.short, icon: k.icon, diff: dayDiff(j[f]) }); });
+      dateFields(j).forEach(([f, k]) => { if (j[f]) ev.push({ j, label: k.short, icon: k.icon, diff: dayDiff(j[f]), time: timeOf(j, f) }); });
     });
-    ev.sort((a, b) => a.diff - b.diff);
+    ev.sort((a, b) => a.diff - b.diff || (a.time || '99:99').localeCompare(b.time || '99:99'));
     box.innerHTML = `<div class="cap">Coming up</div>` + (ev.length
       ? ev.slice(0, 6).map(e => `<div class="uprow" data-jump="${esc(e.j.id)}"><span>${e.icon} <b>${esc(e.label)}</b> · ${esc(e.j.customerName)}</span>
-          <span style="color:${dateColor(e.diff)};font-weight:600;white-space:nowrap">${whenLabel(e.diff)}</span></div>`).join('')
+          <span style="color:${dateColor(e.diff)};font-weight:600;white-space:nowrap">${whenLabel(e.diff)}${e.time ? ' · ' + e.time : ''}</span></div>`).join('')
       : '<div class="hint" style="margin-top:8px">No dates set yet. Add a collection or delivery date to a job.</div>');
     box.querySelectorAll('[data-jump]').forEach(r => r.onclick = () => jumpToJob(r.dataset.jump));
   }
@@ -1098,14 +1103,25 @@ a { color: var(--link); text-decoration: none; }
     const verb = dateFields(j).find(([f]) => f === field)[1].short;
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
     const desc = [j.phone && 'Phone: ' + j.phone, j.address, j.notes].filter(Boolean).join('\n');
+    const time = timeOf(j, field);
+    let when, alarms;
+    if (time) {   // timed event, one hour long, in the phone's own time zone
+      const [hh, mm] = time.split(':').map(Number);
+      const hms = dt => `${ymd(dt)}T${pad2(dt.getHours())}${pad2(dt.getMinutes())}00`;
+      when = [`DTSTART:${hms(new Date(y, m - 1, d, hh, mm))}`, `DTEND:${hms(new Date(y, m - 1, d, hh + 1, mm))}`];
+      alarms = [['-P1D', `Tomorrow ${time}: ${verb.toLowerCase()} ${j.customerName}`], ['-PT1H', `In 1 hour: ${verb.toLowerCase()} ${j.customerName}`]];
+    } else {      // all-day event
+      when = [`DTSTART;VALUE=DATE:${ymd(new Date(y, m - 1, d))}`, `DTEND;VALUE=DATE:${ymd(new Date(y, m - 1, d + 1))}`];
+      alarms = [['-PT15H', `Tomorrow: ${verb.toLowerCase()} ${j.customerName}`]];
+    }
     const lines = [
       'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${brandName()}//EN`, 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
       `UID:${j.id}-${field}@trademate`, `DTSTAMP:${stamp}`,
-      `DTSTART;VALUE=DATE:${ymd(new Date(y, m - 1, d))}`, `DTEND;VALUE=DATE:${ymd(new Date(y, m - 1, d + 1))}`,
+      ...when,
       `SUMMARY:${icsEscape(`${verb}: ${j.customerName} - ${j.jobDescription}`)}`,
       `DESCRIPTION:${icsEscape(desc)}`,
       j.address ? `LOCATION:${icsEscape(j.address)}` : '',
-      'BEGIN:VALARM', 'TRIGGER:-PT15H', 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(`Tomorrow: ${verb.toLowerCase()} ${j.customerName}`)}`, 'END:VALARM',
+      ...alarms.flatMap(([trigger, text]) => ['BEGIN:VALARM', `TRIGGER:${trigger}`, 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(text)}`, 'END:VALARM']),
       'END:VEVENT', 'END:VCALENDAR'
     ].filter(Boolean);
     const res = await shareOrDownload(`${verb.toLowerCase()}-${j.customerName.replace(/[^A-Za-z0-9]+/g, '-')}.ics`, 'text/calendar', lines.join('\r\n'), `${verb}: ${j.customerName}`);
@@ -1192,9 +1208,10 @@ a { color: var(--link); text-decoration: none; }
       rate: Money.plain(job.ratePence === null || job.ratePence === undefined ? S.settings.ratePence : job.ratePence),
       hasCollect: !!job.collectionDate, collect: job.collectionDate || todayISO(), hasDeliver: !!job.deliveryDate, deliver: job.deliveryDate || todayISO(),
       collectType: job.collectionType === 'dropoff' ? 'dropoff' : 'collect', deliverType: job.deliveryType === 'pickup' ? 'pickup' : 'deliver',
+      collectTime: job.collectionTime || '', deliverTime: job.deliveryTime || '',
       address: job.address || '', notes: job.notes || ''
     } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
-          hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', address: '', notes: '' };
+          hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', collectTime: '', deliverTime: '', address: '', notes: '' };
     let location = job ? LocationEditing.load(job) : null;
     let mini = null;
 
@@ -1217,9 +1234,11 @@ a { color: var(--link); text-decoration: none; }
         <div class="row"><span>Collection / drop-off date</span>${switchHTML('hasCollect')}</div>
         <div class="row" id="je-collect-type"><div class="seg segrow" data-seg="collectType"><button type="button" data-v="collect">We collect</button><button type="button" data-v="dropoff">Customer drops off</button></div></div>
         <div class="row" id="je-collect-row"><span id="je-collect-lbl">Collect on</span><input type="date" data-f="collect" style="width:auto"></div>
+        <div class="row" id="je-collect-time-row"><span>Time <span class="hint">(optional)</span></span><span class="timebox"><input type="time" data-f="collectTime" style="width:auto"><button type="button" class="minilink" data-clear="collectTime">Clear</button></span></div>
         <div class="row"><span>Delivery / pick-up date</span>${switchHTML('hasDeliver')}</div>
         <div class="row" id="je-deliver-type"><div class="seg segrow" data-seg="deliverType"><button type="button" data-v="deliver">We deliver</button><button type="button" data-v="pickup">Customer picks up</button></div></div>
-        <div class="row" id="je-deliver-row"><span id="je-deliver-lbl">Deliver on</span><input type="date" data-f="deliver" style="width:auto"></div></div>
+        <div class="row" id="je-deliver-row"><span id="je-deliver-lbl">Deliver on</span><input type="date" data-f="deliver" style="width:auto"></div>
+        <div class="row" id="je-deliver-time-row"><span>Time <span class="hint">(optional)</span></span><span class="timebox"><input type="time" data-f="deliverTime" style="width:auto"><button type="button" class="minilink" data-clear="deliverTime">Clear</button></span></div></div>
       <div class="sf">Switch a date off if it isn't needed. Choose who moves the item: you, or the customer.</div>
       <div class="sh">Address</div><div class="group" id="je-addr">
         <div class="row"><textarea data-f="address" placeholder="Address" rows="2" style="min-height:44px"></textarea></div>
@@ -1240,6 +1259,7 @@ a { color: var(--link); text-decoration: none; }
       });
     });
     body.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.onclick = () => { f[seg.dataset.seg] = b.dataset.v; update(); }));
+    body.querySelectorAll('[data-clear]').forEach(b => b.onclick = () => { f[b.dataset.clear] = ''; body.querySelector(`[data-f=${b.dataset.clear}]`).value = ''; update(); });
     body.querySelector('#je-find').onclick = () => openAddressSearch(f.address, cand => {
       location = LocationEditing.selecting(cand);
       f.address = cand.formattedAddress;
@@ -1258,6 +1278,10 @@ a { color: var(--link); text-decoration: none; }
       body.querySelector('#je-collect-type').style.display = f.hasCollect ? '' : 'none';
       body.querySelector('#je-deliver-row').style.display = f.hasDeliver ? '' : 'none';
       body.querySelector('#je-deliver-type').style.display = f.hasDeliver ? '' : 'none';
+      body.querySelector('#je-collect-time-row').style.display = f.hasCollect ? '' : 'none';
+      body.querySelector('#je-deliver-time-row').style.display = f.hasDeliver ? '' : 'none';
+      body.querySelector('[data-clear=collectTime]').style.visibility = f.collectTime ? 'visible' : 'hidden';
+      body.querySelector('[data-clear=deliverTime]').style.visibility = f.deliverTime ? 'visible' : 'hidden';
       body.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', f[seg.dataset.seg] === b.dataset.v)));
       body.querySelector('#je-collect-lbl').textContent = DATE_KINDS[f.collectType].on;
       body.querySelector('#je-deliver-lbl').textContent = DATE_KINDS[f.deliverType].on;
@@ -1310,6 +1334,8 @@ a { color: var(--link); text-decoration: none; }
       target.deliveryDate = f.hasDeliver ? f.deliver : null;
       target.collectionType = f.collectType;
       target.deliveryType = f.deliverType;
+      target.collectionTime = f.hasCollect && /^\d{2}:\d{2}$/.test(f.collectTime) ? f.collectTime : null;
+      target.deliveryTime = f.hasDeliver && /^\d{2}:\d{2}$/.test(f.deliverTime) ? f.deliverTime : null;
       const q = Money.parsePence(f.quote);
       target.quotePence = q !== null && q >= 0 ? q : null;
       const r = Money.parsePence(f.rate);
@@ -1926,8 +1952,8 @@ a { color: var(--link); text-decoration: none; }
     const LW = 112, dash = '—';
     const info = [
       ['Status', job.status], ['Phone', job.phone || dash], ['Address', job.address || dash],
-      [dateFields(job)[0][1].long, job.collectionDate ? longDay(job.collectionDate) : dash],
-      [dateFields(job)[1][1].long, job.deliveryDate ? longDay(job.deliveryDate) : dash],
+      [dateFields(job)[0][1].long, job.collectionDate ? longWhen(job, 'collectionDate') : dash],
+      [dateFields(job)[1][1].long, job.deliveryDate ? longWhen(job, 'deliveryDate') : dash],
       ['Notes / job spec', job.notes || dash]
     ];
     info.forEach(([k, v], i) => {
@@ -2055,8 +2081,8 @@ a { color: var(--link); text-decoration: none; }
           <tr><th>Status</th><td><b>${esc(job.status)}</b></td></tr>
           <tr><th>Phone</th><td>${job.phone ? esc(job.phone) : dash}</td></tr>
           <tr><th>Address</th><td>${job.address ? esc(job.address) : dash}</td></tr>
-          <tr><th>${esc(dateFields(job)[0][1].long)}</th><td>${job.collectionDate ? esc(longDay(job.collectionDate)) : dash}</td></tr>
-          <tr><th>${esc(dateFields(job)[1][1].long)}</th><td>${job.deliveryDate ? esc(longDay(job.deliveryDate)) : dash}</td></tr>
+          <tr><th>${esc(dateFields(job)[0][1].long)}</th><td>${job.collectionDate ? esc(longWhen(job, 'collectionDate')) : dash}</td></tr>
+          <tr><th>${esc(dateFields(job)[1][1].long)}</th><td>${job.deliveryDate ? esc(longWhen(job, 'deliveryDate')) : dash}</td></tr>
           <tr><th>Notes / job spec</th><td>${job.notes ? esc(job.notes).replace(/\n/g, '<br>') : dash}</td></tr>
         </table>
         <h2>Time logged</h2>
