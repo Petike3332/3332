@@ -713,7 +713,7 @@
         </button>
         <button type="button" style="width: 100%; background: #f2f2f7; color: #007aff; border: none; border-radius: 14px; padding: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;" onclick="checkForUpdate(true, true)"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.5h-4.5"/></svg>Check for updates</button>
         <div id="update-status" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 8px; min-height: 16px;"></div>
-        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 33 · map: OpenStreetMap</div>
+        <div id="version-line" style="text-align: center; font-size: 12px; color: var(--text-sub); margin-top: 6px;">Version 34 · map: OpenStreetMap</div>
       </div>
     </div>
 
@@ -1040,7 +1040,7 @@
           logs.unshift({
             id: String(now), custId: timer.jobId || '', custName: c ? c.name : 'General / Unassigned',
             ts: now, date: fmtDate(now), hours: Math.round(hours * 10000) / 10000,   // keep seconds-level precision
-            breaks: Math.round(brk / 60000), earnings: timer.jobId ? Math.round(hours * settings.rate * 100) / 100 : 0   // General time earns nothing
+            breaks: Math.round(brk / 60000), rate: settings.rate, earnings: timer.jobId ? Math.round(hours * settings.rate * 100) / 100 : 0   // General time earns nothing
           });
           toast(timer.jobId ? 'Time log saved' : 'Time log saved (non-billable)');
         }
@@ -1337,6 +1337,15 @@
       return general ? '' : '__keep';
     }
 
+    // The rate a log was charged at. Older logs didn't store it, so work it out and snap to the
+    // current rate when it only differs by rounding (e.g. 10 min at £25 reads back as £25.01).
+    function logRate(l) {
+      if (isFinite(l.rate) && l.rate >= 0) return l.rate;
+      if (!(l.hours > 0) || !isBillable(l)) return settings.rate;
+      const derived = (l.earnings || 0) / l.hours;
+      return Math.abs(derived - settings.rate) <= Math.max(0.05, settings.rate * 0.005) ? settings.rate : Math.round(derived * 100) / 100;
+    }
+
     function openLogModal(id) {
       const l = logs.find(x => x.id === id);
       if (!l) return;
@@ -1349,7 +1358,7 @@
       $('log-date').value = isoDate(l.ts || Date.now());
       $('log-hours').value = l.hours || 0;
       $('log-break').value = l.breaks || 0;
-      $('log-rate').value = l.hours > 0 && isBillable(l) ? Math.round((l.earnings / l.hours) * 100) / 100 : settings.rate;
+      $('log-rate').value = logRate(l);
       $('log-notes').value = l.notes || '';
       $('log-info').textContent = l.ts
         ? 'Logged ' + new Date(l.ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -1392,6 +1401,7 @@
       const unchanged = logEditOrig && hours === logEditOrig.hours && rate === logEditOrig.rate && key === logEditOrig.key;
       if (key === '') l.earnings = 0;                                            // General / Unassigned is non-billable
       else if (!unchanged) l.earnings = Math.round(hours * rate * 100) / 100;
+      l.rate = rate;
       l.notes = $('log-notes').value.trim();
 
       saveAll();
@@ -1503,7 +1513,11 @@
         const key = r.lat.toFixed(5) + ',' + r.lng.toFixed(5);
         const dupe = seen.has(key) ? results.find(x => x.lat.toFixed(5) + ',' + x.lng.toFixed(5) === key) : null;
         if (dupe) { if (PRECISION[r.precision] < PRECISION[dupe.precision]) Object.assign(dupe, r); return; }
-        if (results.some(x => x.label === r.label)) return;
+        const sameLabel = results.find(x => x.label === r.label);
+        if (sameLabel) {   // e.g. "3 Firs Close" as a street guess vs the real house: keep the real house
+          if (PRECISION[r.precision] < PRECISION[sameLabel.precision]) Object.assign(sameLabel, r);
+          return;
+        }
         seen.add(key);
         results.push(r);
       };
@@ -1604,6 +1618,24 @@
       if (!results.length && house) await freeText(body || rest);     // street without the number
       if (!results.length && pc) await freeText(pc);
 
+      // Outside the UK (restores the worldwide search from earlier versions): only if the UK found nothing
+      if (!results.length && !pc) {
+        attempts++;
+        await nomWait();
+        try {
+          const d = await fetchJson(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&accept-language=en&limit=5&q=${encodeURIComponent(raw)}`);
+          (d || []).forEach(item => {
+            const a = item.address || {};
+            const street = a.road || a.pedestrian || '';
+            add({
+              label: buildLabel(a.house_number || (street ? house : ''), street, a.town || a.city || a.village || a.suburb || '', a.postcode, a.country || ''),
+              lat: parseFloat(item.lat), lng: parseFloat(item.lon),
+              precision: rank(!!a.house_number, !!street, item.type), importance: item.importance || 0
+            });
+          });
+        } catch (e) { failures++; }
+      }
+
       // Postcode centroid: only when nothing more precise was found anywhere
       if (pc && !results.length) {
         attempts++;
@@ -1612,7 +1644,7 @@
           if (d.status === 200 && d.result) {
             const r = d.result;
             add({
-              label: buildLabel(house, '', r.admin_ward || r.parish || r.admin_district, r.postcode, 'United Kingdom'),
+              label: buildLabel('', '', r.admin_ward || r.parish || r.admin_district, r.postcode, 'United Kingdom'),
               lat: r.latitude, lng: r.longitude, precision: 'postcode', importance: 0
             });
           }
@@ -1690,8 +1722,9 @@
         btn.disabled = true; btn.textContent = 'Locating address…';
         const { results } = await lookupAddress(typed);
         btn.disabled = false; btn.textContent = 'Save Job';
-        if (results.length) { lat = results[0].lat; lng = results[0].lng; address = results[0].label; }
-        else note = 'Saved, but the address could not be placed on the map';
+        const best = results[0];
+        if (best && (best.precision === 'property' || best.precision === 'street')) { lat = best.lat; lng = best.lng; address = best.label; }
+        else note = 'Saved your address. Tap Find and pick a result to place it on the map';   // don't store a postcode centre for a specific address
       }
 
       const record = {
@@ -1739,7 +1772,7 @@
       if (!(hrs > 0)) { toast('Enter the hours worked'); return; }
       const c = findCustomer(custId);
       const now = Date.now();
-      logs.unshift({ id: String(now), custId, custName: c ? c.name : 'General / Unassigned', ts: now, date: fmtDate(now), hours: hrs, breaks: 0, earnings: Math.round(hrs * settings.rate * 100) / 100 });
+      logs.unshift({ id: String(now), custId, custName: c ? c.name : 'General / Unassigned', ts: now, date: fmtDate(now), hours: hrs, breaks: 0, rate: settings.rate, earnings: Math.round(hrs * settings.rate * 100) / 100 });
       saveAll();
       renderOverviewLogs();
       $('manage-hours').value = '';
@@ -2169,7 +2202,7 @@
 
     /* ================= Auto-update ================= */
     // Bump APP_VERSION with every release. The app compares it with the newest file on the website.
-    const APP_VERSION = 33;
+    const APP_VERSION = 34;
     let updateVersion = null, lastUpdateCheck = 0;
 
     async function fetchLatestVersion() {
@@ -2558,7 +2591,7 @@
       const out = [['Date', 'Customer', 'Hours', 'Break (min)', 'Rate', 'Earnings', 'Notes'].join(',')];
       rows.forEach(l => {
         const h = l.hours || 0;
-        out.push([isoDate(logTime(l)), l.custName, h.toFixed(2), l.breaks || 0, h > 0 && isBillable(l) ? (earnOf(l) / h).toFixed(2) : '', earnOf(l).toFixed(2), l.notes || ''].map(csvCell).join(','));
+        out.push([isoDate(logTime(l)), l.custName, h.toFixed(2), l.breaks || 0, h > 0 && isBillable(l) ? Number(logRate(l)).toFixed(2) : '', earnOf(l).toFixed(2), l.notes || ''].map(csvCell).join(','));
       });
       out.push(['Total', '', rows.reduce((s, l) => s + (l.hours || 0), 0).toFixed(2), '', '', rows.reduce((s, l) => s + earnOf(l), 0).toFixed(2), ''].join(','));
       const res = await shareOrDownload(`${fileSlug(brandName())}-timesheet-${sumRange}-${isoDate(Date.now())}.csv`, 'text/csv', '\ufeff' + out.join('\r\n'), 'Timesheet');
