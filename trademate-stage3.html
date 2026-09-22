@@ -339,6 +339,40 @@ a { color: var(--link); text-decoration: none; }
 .fkey i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .fkey i.done { background: var(--green); } .fkey i.booked { background: var(--blue); opacity: .75; }
 
+
+/* Dates — one design system: 15px controls, 13px chips, 10px control radius, 12px card radius */
+:root { --accent-tint: rgba(27,54,93,.08); --accent-tint-2: rgba(27,54,93,.14); --r-ctl: 10px; --r-card: 12px; --fs-ctl: 15px; --fs-chip: 13px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --accent-tint: rgba(122,162,217,.14); --accent-tint-2: rgba(122,162,217,.22); } }
+:root[data-theme="dark"] { --accent-tint: rgba(122,162,217,.14); --accent-tint-2: rgba(122,162,217,.22); }
+.ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.ico.sm { width: 15px; height: 15px; stroke-width: 2.25; }
+.dcard { background: var(--card); border: 1px solid var(--accent-tint-2); border-radius: var(--r-card); margin: 0 16px 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.drow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dicon { width: 30px; height: 30px; border-radius: 8px; background: var(--accent-tint); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none; }
+.dicon .ico { width: 18px; height: 18px; }
+.seg.segmini { margin: 0; flex: 1; min-width: 0; padding: 2px; border-radius: var(--r-ctl); }
+.seg.segmini button { font-size: var(--fs-chip); font-weight: 500; padding: 6px 2px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg.segmini button.on { font-weight: 600; }
+.dpill { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--fill2); background: none; color: var(--sub); font-size: var(--fs-chip); font-weight: 600;
+  border-radius: var(--r-ctl); height: 32px; padding: 0 10px; white-space: nowrap; cursor: pointer; flex: none; }
+.dpill.on { background: rgba(52,199,89,.14); border-color: rgba(52,199,89,.35); color: var(--green-t); }
+.dx, .dclear { border: 0; background: none; color: var(--faint); width: 28px; height: 32px; padding: 0; cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center; border-radius: var(--r-ctl); }
+.dclear { width: 22px; }
+.dx:active, .dclear:active { background: var(--fill); }
+.dlabel { flex: 1; min-width: 0; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dpick { border: 0; background: var(--fill); border-radius: var(--r-ctl); height: 34px; padding: 0 8px; font-size: var(--fs-ctl); color: var(--text); min-width: 0; flex: none; }
+.dday { width: 116px; }
+.dtime { width: 68px; }
+.dnote { flex: 1; border: 0; background: var(--fill); border-radius: var(--r-ctl); height: 36px; padding: 0 10px; font-size: var(--fs-ctl); outline: none; min-width: 0; }
+#je-dates { display: flex; flex-direction: column; gap: 10px; margin: 0 16px; }
+.dcard { margin: 0; }
+.dadd { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--accent-tint-2); background: var(--accent-tint); color: var(--accent);
+  border-radius: var(--r-card); min-height: 50px; padding: 0 14px 0 10px; font-size: var(--fs-ctl); font-weight: 600; text-align: left; cursor: pointer; }
+.dadd .dicon { background: var(--card); }
+.dadd-l { flex: 1; }
+.dadd .ico.plus { width: 18px; height: 18px; stroke-width: 2; opacity: .8; }
+.dadd:active { background: var(--accent-tint-2); }
+
 </style>
 </head>
 <body>
@@ -1401,24 +1435,8 @@ a { color: var(--link); text-decoration: none; }
         <div class="row"><span>Labour rate per hour</span><input class="inp right" inputmode="decimal" data-f="rate" style="max-width:40%"></div>
         <div class="row" id="je-cover" style="display:none"><span>Quote covers</span><span class="v num" id="je-covers"></span></div></div>
       <div class="sf">Used for this job's time allowance and for new time logged to it. Changing it never alters time already logged, and changing your default rate never alters this job.</div>
-      <div class="sh">Dates</div><div class="group">
-        <div class="row"><span>Meeting</span>${switchHTML('hasMeeting')}</div>
-        <div class="row" id="je-meet-place"><div class="seg segrow" data-seg="meetingPlace"><button type="button" data-v="customer">At customer's address</button><button type="button" data-v="workshop">At my workshop</button></div></div>
-        <div class="row" id="je-meet-row"><span>Meeting on</span><input type="date" data-f="meeting" style="width:auto"></div>
-        <div class="row" id="je-meet-time-row"><span>Time <span class="hint">(optional)</span></span><span class="timebox"><input type="time" data-f="meetingTime" style="width:auto"><button type="button" class="minilink" data-clear="meetingTime">Clear</button></span></div>
-        <div class="row" id="je-meet-note-row"><input type="text" data-f="meetingNote" placeholder="What for / where (optional), e.g. Measure up at house"></div>
-        <div class="row" id="je-meet-done-row"><span>Meeting done</span>${switchHTML('meetingDone')}</div>
-        <div class="row"><span>Collection / drop-off date</span>${switchHTML('hasCollect')}</div>
-        <div class="row" id="je-collect-type"><div class="seg segrow" data-seg="collectType"><button type="button" data-v="collect">We collect</button><button type="button" data-v="dropoff">Customer drops off</button></div></div>
-        <div class="row" id="je-collect-row"><span id="je-collect-lbl">Collect on</span><input type="date" data-f="collect" style="width:auto"></div>
-        <div class="row" id="je-collect-time-row"><span>Time <span class="hint">(optional)</span></span><span class="timebox"><input type="time" data-f="collectTime" style="width:auto"><button type="button" class="minilink" data-clear="collectTime">Clear</button></span></div>
-        <div class="row" id="je-collect-done-row"><span id="je-collect-done-lbl">Collected</span>${switchHTML('collectDone')}</div>
-        <div class="row"><span>Delivery / pick-up date</span>${switchHTML('hasDeliver')}</div>
-        <div class="row" id="je-deliver-type"><div class="seg segrow" data-seg="deliverType"><button type="button" data-v="deliver">We deliver</button><button type="button" data-v="pickup">Customer picks up</button></div></div>
-        <div class="row" id="je-deliver-row"><span id="je-deliver-lbl">Deliver on</span><input type="date" data-f="deliver" style="width:auto"></div>
-        <div class="row" id="je-deliver-time-row"><span>Time <span class="hint">(optional)</span></span><span class="timebox"><input type="time" data-f="deliverTime" style="width:auto"><button type="button" class="minilink" data-clear="deliverTime">Clear</button></span></div></div>
-        <div class="row" id="je-deliver-done-row"><span id="je-deliver-done-lbl">Delivered</span>${switchHTML('deliverDone')}</div>
-      <div class="sf">Switch a date off if it isn't needed. Choose who moves the item: you, or the customer. Mark each one done once it has happened.</div>
+      <div class="sh">Dates</div><div id="je-dates"></div>
+      <div class="sf">Add the dates this job needs. Mark each one done once it has happened.</div>
       <div class="sh">Address</div><div class="group" id="je-addr">
         <div class="row"><textarea data-f="address" placeholder="Address" rows="2" style="min-height:44px"></textarea></div>
         <div class="row btnrow tap" id="je-find"></div>
@@ -1443,7 +1461,7 @@ a { color: var(--link); text-decoration: none; }
       });
     });
     body.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.onclick = () => { f[seg.dataset.seg] = b.dataset.v; update(); }));
-    body.querySelectorAll('[data-clear]').forEach(b => b.onclick = () => { f[b.dataset.clear] = ''; body.querySelector(`[data-f=${b.dataset.clear}]`).value = ''; update(); });
+
     body.querySelector('#je-find').onclick = () => openAddressSearch(f.address, cand => {
       location = LocationEditing.selecting(cand);
       f.address = cand.formattedAddress;
@@ -1451,6 +1469,74 @@ a { color: var(--link); text-decoration: none; }
       update();
     });
 
+
+    // ---- Dates: one compact card per date; dates not added yet are stacked "+" buttons ----
+    const ICON = {
+      meeting: '<circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+      collect: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+      deliver: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+      plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+      x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+      check: '<path d="M20 6 9 17l-5-5"/>'
+    };
+    const svg = (name, cls) => `<svg class="ico ${cls || ''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[name]}</svg>`;
+    const DATE_CARDS = [
+      { has: 'hasMeeting', date: 'meeting', time: 'meetingTime', done: 'meetingDone', seg: 'meetingPlace', add: 'Meeting', icon: 'meeting', note: true,
+        opts: [['customer', 'On site'], ['workshop', 'Workshop']], kind: () => DATE_KINDS[f.meetingPlace === 'workshop' ? 'meetWorkshop' : 'meetCustomer'] },
+      { has: 'hasCollect', date: 'collect', time: 'collectTime', done: 'collectDone', seg: 'collectType', add: 'Collection / drop-off', icon: 'collect',
+        opts: [['collect', 'Collect'], ['dropoff', 'Drop-off']], kind: () => DATE_KINDS[f.collectType] },
+      { has: 'hasDeliver', date: 'deliver', time: 'deliverTime', done: 'deliverDone', seg: 'deliverType', add: 'Delivery / pick-up', icon: 'deliver',
+        opts: [['deliver', 'Deliver'], ['pickup', 'Pick-up']], kind: () => DATE_KINDS[f.deliverType] }
+    ];
+    function renderDates() {
+      const box = body.querySelector('#je-dates');
+      // Meeting, Collection, Delivery always render in this fixed order and the same three
+      // slots, whether open (a card) or closed (an add button), so nothing ever swaps
+      // position when one is added or removed — a tap right after adding one can never
+      // land on a different date because it moved.
+      box.innerHTML = DATE_CARDS.map(c => {
+        if (!f[c.has]) return `<button type="button" class="dadd" data-dadd="${c.has}"><span class="dicon">${svg(c.icon)}</span><span class="dadd-l">${esc(c.add)}</span>${svg('plus', 'plus')}</button>`;
+        const k = c.kind();
+        return `<div class="dcard" data-card="${c.has}">
+          <div class="drow">
+            <span class="dicon" title="${esc(c.add)}">${svg(c.icon)}</span>
+            <div class="seg segmini" role="radiogroup">${c.opts.map(([v, label]) => `<button type="button" data-dseg="${c.seg}" data-v="${v}" class="${f[c.seg] === v ? 'on' : ''}">${esc(label)}</button>`).join('')}</div>
+            <button type="button" class="dpill ${f[c.done] ? 'on' : ''}" data-ddone="${c.done}" aria-pressed="${f[c.done] ? 'true' : 'false'}" aria-label="${esc(f[c.done] ? k.done : k.mark)}">${f[c.done] ? svg('check', 'sm') + 'Done' : 'Mark done'}</button>
+            <button type="button" class="dx" data-dremove="${c.has}" aria-label="Remove ${esc(c.add.toLowerCase())}">${svg('x')}</button>
+          </div>
+          <div class="drow">
+            <span class="dlabel">${esc(k.on)}</span>
+            <input type="date" class="dpick dday" data-df="${c.date}" aria-label="${esc(k.on)}">
+            <input type="time" class="dpick dtime" data-df="${c.time}" aria-label="Time (optional)">
+            <button type="button" class="dclear" data-dclear="${c.time}" aria-label="Clear time" style="visibility:${f[c.time] ? 'visible' : 'hidden'}">${svg('x', 'sm')}</button>
+          </div>
+          ${c.note ? `<div class="drow"><input type="text" class="dnote" data-df="meetingNote" placeholder="What for, e.g. measure up at house (optional)"></div>` : ''}
+        </div>`;
+      }).join('');
+      box.querySelectorAll('[data-df]').forEach(inp => {
+        inp.value = f[inp.dataset.df] || '';
+        inp.addEventListener('input', () => {
+          f[inp.dataset.df] = inp.value;
+          const clr = box.querySelector(`[data-dclear="${inp.dataset.df}"]`);
+          if (clr) clr.style.visibility = inp.value ? 'visible' : 'hidden';
+        });
+        inp.addEventListener('change', () => { f[inp.dataset.df] = inp.value; });
+      });
+      box.querySelectorAll('[data-dseg]').forEach(b => b.onclick = () => { f[b.dataset.dseg] = b.dataset.v; renderDates(); });
+      box.querySelectorAll('[data-ddone]').forEach(b => b.onclick = () => { f[b.dataset.ddone] = !f[b.dataset.ddone]; renderDates(); });
+      box.querySelectorAll('[data-dremove]').forEach(b => b.onclick = () => { f[b.dataset.dremove] = false; renderDates(); });
+      box.querySelectorAll('[data-dadd]').forEach(b => b.onclick = () => {
+        const c = DATE_CARDS.find(x => x.has === b.dataset.dadd);
+        f[c.has] = true;
+        if (!f[c.date]) f[c.date] = todayISO();
+        renderDates();
+      });
+      box.querySelectorAll('[data-dclear]').forEach(b => b.onclick = () => {
+        f[b.dataset.dclear] = '';
+        box.querySelector(`[data-df="${b.dataset.dclear}"]`).value = '';
+        b.style.visibility = 'hidden';
+      });
+    }
     function update() {
       const canSave = f.customerName.trim() && f.jobDescription.trim();
       ov.querySelector('[data-save]').disabled = !canSave;
@@ -1463,23 +1549,7 @@ a { color: var(--link); text-decoration: none; }
       const cover = qp !== null && qp >= 0 && rp !== null ? Money.allowanceSeconds(qp, rp) : null;
       body.querySelector('#je-cover').style.display = cover !== null ? '' : 'none';
       if (cover !== null) body.querySelector('#je-covers').textContent = Duration.decimalHours(cover) + ' hrs';
-      body.querySelector('#je-collect-row').style.display = f.hasCollect ? '' : 'none';
-      body.querySelector('#je-collect-type').style.display = f.hasCollect ? '' : 'none';
-      body.querySelector('#je-deliver-row').style.display = f.hasDeliver ? '' : 'none';
-      body.querySelector('#je-deliver-type').style.display = f.hasDeliver ? '' : 'none';
-      ['je-meet-place', 'je-meet-row', 'je-meet-time-row', 'je-meet-note-row', 'je-meet-done-row'].forEach(id => { body.querySelector('#' + id).style.display = f.hasMeeting ? '' : 'none'; });
-      body.querySelector('[data-clear=meetingTime]').style.visibility = f.meetingTime ? 'visible' : 'hidden';
-      body.querySelector('#je-collect-time-row').style.display = f.hasCollect ? '' : 'none';
-      body.querySelector('#je-collect-done-row').style.display = f.hasCollect ? '' : 'none';
-      body.querySelector('#je-deliver-done-row').style.display = f.hasDeliver ? '' : 'none';
-      body.querySelector('#je-collect-done-lbl').textContent = DATE_KINDS[f.collectType].done;
-      body.querySelector('#je-deliver-done-lbl').textContent = DATE_KINDS[f.deliverType].done;
-      body.querySelector('#je-deliver-time-row').style.display = f.hasDeliver ? '' : 'none';
-      body.querySelector('[data-clear=collectTime]').style.visibility = f.collectTime ? 'visible' : 'hidden';
-      body.querySelector('[data-clear=deliverTime]').style.visibility = f.deliverTime ? 'visible' : 'hidden';
-      body.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', f[seg.dataset.seg] === b.dataset.v)));
-      body.querySelector('#je-collect-lbl').textContent = DATE_KINDS[f.collectType].on;
-      body.querySelector('#je-deliver-lbl').textContent = DATE_KINDS[f.deliverType].on;
+      renderDates();
       body.querySelector('#je-find').innerHTML = `🔍 ${location ? 'Search again' : 'Find address'}`;
       const locBox = body.querySelector('#je-loc');
       const key = location ? `${location.latitude},${location.longitude},${location.precision},${location.pinMoved}` : '';
