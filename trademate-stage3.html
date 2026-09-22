@@ -1050,10 +1050,10 @@ a { color: var(--link); text-decoration: none; }
   // ---------- Dates: collection / delivery ----------
   // Who moves the item: the business (collect / deliver) or the customer (drops off / picks up)
   const DATE_KINDS = {
-    collect: { short: 'Collect', long: 'Collection date', on: 'Collect on', icon: '📥' },
-    dropoff: { short: 'Drop-off', long: 'Drop-off date (customer brings it)', on: 'Drop-off on', icon: '🚗' },
-    deliver: { short: 'Deliver', long: 'Due / delivery date', on: 'Deliver on', icon: '📦' },
-    pickup: { short: 'Pick-up', long: 'Pick-up date (customer collects it)', on: 'Pick-up on', icon: '🚗' }
+    collect: { short: 'Collect', long: 'Collection date', on: 'Collect on', icon: '📥', done: 'Collected', mark: 'Mark as collected' },
+    dropoff: { short: 'Drop-off', long: 'Drop-off date (customer brings it)', on: 'Drop-off on', icon: '🚗', done: 'Dropped off', mark: 'Mark as dropped off' },
+    deliver: { short: 'Deliver', long: 'Due / delivery date', on: 'Deliver on', icon: '📦', done: 'Delivered', mark: 'Mark as delivered' },
+    pickup: { short: 'Pick-up', long: 'Pick-up date (customer collects it)', on: 'Pick-up on', icon: '🚗', done: 'Picked up', mark: 'Mark as picked up' }
   };
   const dateFields = j => [
     ['collectionDate', DATE_KINDS[j.collectionType === 'dropoff' ? 'dropoff' : 'collect']],
@@ -1080,16 +1080,32 @@ a { color: var(--link); text-decoration: none; }
     return `<div class="daterow" style="color:var(--sub)">💷 Deposit <b>${esc(fmt(j.depositPence))}</b>${j.depositDate ? ' paid ' + esc(prettyDay(j.depositDate)) : ''}${bal !== null ? ` · Balance <b>${esc(fmt(bal))}</b>` : ''}</div>`;
   }
   const timeField = f => f === 'collectionDate' ? 'collectionTime' : 'deliveryTime';
+  const doneField = f => f === 'collectionDate' ? 'collectionDone' : 'deliveryDone';
+  const isDone = (j, f) => !!j[doneField(f)];
+  function setDone(jobId, f, done) {
+    const j = jobById(jobId); if (!j) return;
+    j[doneField(f)] = done;
+    j[doneField(f) + 'At'] = done ? Date.now() : null;
+    saveAll(); refreshAll();
+    const k = dateFields(j).find(([x]) => x === f)[1];
+    toast(done ? `${k.done}: ${j.customerName}` : `${k.done} mark removed`);
+  }
   const timeOf = (j, f) => j[timeField(f)] || '';
   const shortWhen = (j, f) => prettyDay(j[f]) + (timeOf(j, f) ? ', ' + timeOf(j, f) : '');
-  const longWhen = (j, f) => longDay(j[f]) + (timeOf(j, f) ? ' at ' + timeOf(j, f) : '');
+  const longWhen = (j, f) => longDay(j[f]) + (timeOf(j, f) ? ' at ' + timeOf(j, f) : '') +
+    (isDone(j, f) ? ` (${dateFields(j).find(([x]) => x === f)[1].done.toLowerCase()})` : '');
   const whenLabel = diff => diff < 0 ? `${-diff} day${diff === -1 ? '' : 's'} overdue` : diff === 0 ? 'today' : diff === 1 ? 'tomorrow' : `in ${diff} days`;
   const dateColor = diff => diff < 0 ? 'var(--red)' : diff <= 1 ? 'var(--orange-t)' : 'var(--sub)';
 
   function dateRows(j) {
     return dateFields(j).filter(([f]) => j[f]).map(([f, k]) => {
+      if (isDone(j, f)) {
+        return `<div class="daterow" style="color:var(--green-t)">✅ ${k.done}: <b>${esc(shortWhen(j, f))}</b>
+          <button type="button" class="minilink" data-undone="${esc(j.id)}" data-f="${f}">Undo</button></div>`;
+      }
       const open = j.status !== 'Completed', diff = dayDiff(j[f]);
       return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${k.icon} ${k.short}: <b>${esc(shortWhen(j, f))}</b>${open ? ' · ' + whenLabel(diff) : ''}
+        ${open ? `<button type="button" class="minilink" data-done="${esc(j.id)}" data-f="${f}">✓ Mark ${esc(k.done.toLowerCase())}</button>` : ''}
         <button type="button" class="minilink" data-cal="${esc(j.id)}" data-f="${f}">+ Calendar</button></div>`;
     }).join('');
   }
@@ -1101,14 +1117,20 @@ a { color: var(--link); text-decoration: none; }
     const ev = [];
     S.jobs.forEach(j => {
       if (j.status === 'Completed') return;
-      dateFields(j).forEach(([f, k]) => { if (j[f]) ev.push({ j, label: k.short, icon: k.icon, diff: dayDiff(j[f]), time: timeOf(j, f) }); });
+      dateFields(j).forEach(([f, k]) => { if (j[f] && !isDone(j, f)) ev.push({ j, f, k, label: k.short, icon: k.icon, diff: dayDiff(j[f]), time: timeOf(j, f) }); });
     });
     ev.sort((a, b) => a.diff - b.diff || (a.time || '99:99').localeCompare(b.time || '99:99'));
     box.innerHTML = `<div class="cap">Coming up</div>` + (ev.length
-      ? ev.slice(0, 6).map(e => `<div class="uprow" data-jump="${esc(e.j.id)}"><span>${e.icon} <b>${esc(e.label)}</b> · ${esc(e.j.customerName)}</span>
+      ? ev.slice(0, 6).map((e, i) => `<div class="uprow" data-ev="${i}"><span>${e.icon} <b>${esc(e.label)}</b> · ${esc(e.j.customerName)}</span>
           <span style="color:${dateColor(e.diff)};font-weight:600;white-space:nowrap">${whenLabel(e.diff)}${e.time ? ' · ' + e.time : ''}</span></div>`).join('')
       : '<div class="hint" style="margin-top:8px">No dates set yet. Add a collection or delivery date to a job.</div>');
-    box.querySelectorAll('[data-jump]').forEach(r => r.onclick = () => jumpToJob(r.dataset.jump));
+    box.querySelectorAll('[data-ev]').forEach(r => r.onclick = () => {
+      const e = ev[+r.dataset.ev];
+      actionSheet(`${e.k.short} · ${e.j.customerName}`, `${shortWhen(e.j, e.f)} · ${whenLabel(e.diff)}`, [
+        { label: '✓ ' + e.k.mark, action: () => setDone(e.j.id, e.f, true) },
+        { label: 'Open job', action: () => jumpToJob(e.j.id) },
+        { label: 'Cancel', role: 'cancel' }]);
+    });
   }
   function jumpToJob(id) {
     S.jobSearch = '';
@@ -1237,6 +1259,8 @@ a { color: var(--link); text-decoration: none; }
     box.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => openJobSheet(b.dataset.sheet));
     bindPhotoViews(box);
     box.querySelectorAll('[data-cal]').forEach(b => b.onclick = () => addToCalendar(b.dataset.cal, b.dataset.f));
+    box.querySelectorAll('[data-done]').forEach(b => b.onclick = () => setDone(b.dataset.done, b.dataset.f, true));
+    box.querySelectorAll('[data-undone]').forEach(b => b.onclick = () => setDone(b.dataset.undone, b.dataset.f, false));
   }
   function requestDeleteJob(job) {
     if (S.shift.isRunning && S.shift.jobID === job.id) { actionSheet("Can't delete", 'Stop the timer before deleting this job.', [{ label: 'OK', role: 'cancel' }]); return; }
@@ -1264,9 +1288,10 @@ a { color: var(--link); text-decoration: none; }
       hasCollect: !!job.collectionDate, collect: job.collectionDate || todayISO(), hasDeliver: !!job.deliveryDate, deliver: job.deliveryDate || todayISO(),
       collectType: job.collectionType === 'dropoff' ? 'dropoff' : 'collect', deliverType: job.deliveryType === 'pickup' ? 'pickup' : 'deliver',
       collectTime: job.collectionTime || '', deliverTime: job.deliveryTime || '',
+      collectDone: !!job.collectionDone, deliverDone: !!job.deliveryDone,
       address: job.address || '', notes: job.notes || ''
     } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', deposit: '', depositDate: todayISO(), rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
-          hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', collectTime: '', deliverTime: '', address: '', notes: '' };
+          hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', collectTime: '', deliverTime: '', collectDone: false, deliverDone: false, address: '', notes: '' };
     let location = job ? LocationEditing.load(job) : null;
     let mini = null;
     const editId = job ? job.id : uid();   // new jobs get their id now, so photos can be added before saving
@@ -1297,10 +1322,12 @@ a { color: var(--link); text-decoration: none; }
         <div class="row"><span>Collection / drop-off date</span>${switchHTML('hasCollect')}</div>
         <div class="row" id="je-collect-type"><div class="seg segrow" data-seg="collectType"><button type="button" data-v="collect">We collect</button><button type="button" data-v="dropoff">Customer drops off</button></div></div>
         <div class="row" id="je-collect-row"><span id="je-collect-lbl">Collect on</span><input type="date" data-f="collect" style="width:auto"></div>
+        <div class="row" id="je-collect-done-row"><span id="je-collect-done-lbl">Collected</span>${switchHTML('collectDone')}</div>
         <div class="row" id="je-collect-time-row"><span>Time <span class="hint">(optional)</span></span><span class="timebox"><input type="time" data-f="collectTime" style="width:auto"><button type="button" class="minilink" data-clear="collectTime">Clear</button></span></div>
         <div class="row"><span>Delivery / pick-up date</span>${switchHTML('hasDeliver')}</div>
         <div class="row" id="je-deliver-type"><div class="seg segrow" data-seg="deliverType"><button type="button" data-v="deliver">We deliver</button><button type="button" data-v="pickup">Customer picks up</button></div></div>
         <div class="row" id="je-deliver-row"><span id="je-deliver-lbl">Deliver on</span><input type="date" data-f="deliver" style="width:auto"></div>
+        <div class="row" id="je-deliver-done-row"><span id="je-deliver-done-lbl">Delivered</span>${switchHTML('deliverDone')}</div>
         <div class="row" id="je-deliver-time-row"><span>Time <span class="hint">(optional)</span></span><span class="timebox"><input type="time" data-f="deliverTime" style="width:auto"><button type="button" class="minilink" data-clear="deliverTime">Clear</button></span></div></div>
       <div class="sf">Switch a date off if it isn't needed. Choose who moves the item: you, or the customer.</div>
       <div class="sh">Address</div><div class="group" id="je-addr">
@@ -1352,6 +1379,10 @@ a { color: var(--link); text-decoration: none; }
       body.querySelector('#je-deliver-row').style.display = f.hasDeliver ? '' : 'none';
       body.querySelector('#je-deliver-type').style.display = f.hasDeliver ? '' : 'none';
       body.querySelector('#je-collect-time-row').style.display = f.hasCollect ? '' : 'none';
+      body.querySelector('#je-collect-done-row').style.display = f.hasCollect ? '' : 'none';
+      body.querySelector('#je-deliver-done-row').style.display = f.hasDeliver ? '' : 'none';
+      body.querySelector('#je-collect-done-lbl').textContent = DATE_KINDS[f.collectType].done;
+      body.querySelector('#je-deliver-done-lbl').textContent = DATE_KINDS[f.deliverType].done;
       body.querySelector('#je-deliver-time-row').style.display = f.hasDeliver ? '' : 'none';
       body.querySelector('[data-clear=collectTime]').style.visibility = f.collectTime ? 'visible' : 'hidden';
       body.querySelector('[data-clear=deliverTime]').style.visibility = f.deliverTime ? 'visible' : 'hidden';
@@ -1435,6 +1466,11 @@ a { color: var(--link); text-decoration: none; }
       target.deliveryDate = f.hasDeliver ? f.deliver : null;
       target.collectionType = f.collectType;
       target.deliveryType = f.deliverType;
+      const doneNow = (was, now, atWas) => now ? (was ? atWas : Date.now()) : null;
+      target.collectionDoneAt = f.hasCollect ? doneNow(target.collectionDone, f.collectDone, target.collectionDoneAt) : null;
+      target.deliveryDoneAt = f.hasDeliver ? doneNow(target.deliveryDone, f.deliverDone, target.deliveryDoneAt) : null;
+      target.collectionDone = f.hasCollect && f.collectDone;
+      target.deliveryDone = f.hasDeliver && f.deliverDone;
       target.collectionTime = f.hasCollect && /^\d{2}:\d{2}$/.test(f.collectTime) ? f.collectTime : null;
       target.deliveryTime = f.hasDeliver && /^\d{2}:\d{2}$/.test(f.deliverTime) ? f.deliverTime : null;
       const q = Money.parsePence(f.quote);
