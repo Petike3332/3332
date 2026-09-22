@@ -1071,6 +1071,14 @@ a { color: var(--link); text-decoration: none; }
   const fromISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
   const prettyDay = s => { const d = fromISO(s); return `${WD[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`; };
   const longDay = s => { const d = fromISO(s); return `${WD[d.getDay()]} ${d.getDate()} ${MONTH[d.getMonth()]} ${d.getFullYear()}`; };
+  // Deposit and balance (whole pence)
+  const hasDeposit = j => !!(j.depositPence && j.depositPence > 0);
+  const balanceOf = j => (j.quotePence === null || j.quotePence === undefined) ? null : Math.max(0, j.quotePence - (hasDeposit(j) ? j.depositPence : 0));
+  function depositRow(j) {
+    if (!hasDeposit(j)) return '';
+    const bal = balanceOf(j);
+    return `<div class="daterow" style="color:var(--sub)">💷 Deposit <b>${esc(fmt(j.depositPence))}</b>${j.depositDate ? ' paid ' + esc(prettyDay(j.depositDate)) : ''}${bal !== null ? ` · Balance <b>${esc(fmt(bal))}</b>` : ''}</div>`;
+  }
   const timeField = f => f === 'collectionDate' ? 'collectionTime' : 'deliveryTime';
   const timeOf = (j, f) => j[timeField(f)] || '';
   const shortWhen = (j, f) => prettyDay(j[f]) + (timeOf(j, f) ? ', ' + timeOf(j, f) : '');
@@ -1217,6 +1225,7 @@ a { color: var(--link); text-decoration: none; }
         <div class="desc">${esc(j.jobDescription)}</div>
         ${j.address ? `<div class="addr">📍 ${esc(j.address)}</div>` : ''}
         ${dateRows(j)}
+        ${depositRow(j)}
         ${photoStrip(j)}
         <div class="acts">${call ? `<a class="btn prim small" href="${call}">📞 Call</a>` : ''}${dir ? `<a class="btn tint small" href="${dir}" target="_blank" rel="noopener">➤ Directions</a>` : ''}<button type="button" class="btn tint small" data-sheet="${esc(j.id)}">🖨️ Job sheet</button></div>
       </div>`, [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }], j.id, 'jobcard');
@@ -1250,12 +1259,13 @@ a { color: var(--link); text-decoration: none; }
     const f = job ? {
       customerName: job.customerName, phone: job.phone || '', jobDescription: job.jobDescription, status: job.status,
       quote: job.quotePence === null || job.quotePence === undefined ? '' : Money.plain(job.quotePence),
+      deposit: job.depositPence ? Money.plain(job.depositPence) : '', depositDate: job.depositDate || todayISO(),
       rate: Money.plain(job.ratePence === null || job.ratePence === undefined ? S.settings.ratePence : job.ratePence),
       hasCollect: !!job.collectionDate, collect: job.collectionDate || todayISO(), hasDeliver: !!job.deliveryDate, deliver: job.deliveryDate || todayISO(),
       collectType: job.collectionType === 'dropoff' ? 'dropoff' : 'collect', deliverType: job.deliveryType === 'pickup' ? 'pickup' : 'deliver',
       collectTime: job.collectionTime || '', deliverTime: job.deliveryTime || '',
       address: job.address || '', notes: job.notes || ''
-    } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
+    } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', deposit: '', depositDate: todayISO(), rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
           hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', collectTime: '', deliverTime: '', address: '', notes: '' };
     let location = job ? LocationEditing.load(job) : null;
     let mini = null;
@@ -1273,6 +1283,12 @@ a { color: var(--link); text-decoration: none; }
         <div class="row"><textarea data-f="jobDescription" placeholder="Job / item description" rows="2" style="min-height:44px"></textarea></div>
         <div class="row"><span>Status</span><select data-f="status" style="width:auto"><option>New</option><option>In Progress</option><option>Completed</option></select></div>
         <div class="row"><span>Quoted price</span><input class="inp right" inputmode="decimal" data-f="quote" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div></div>
+      <div class="sh">Deposit</div><div class="group">
+        <div class="row"><span>Deposit paid</span><input class="inp right" inputmode="decimal" data-f="deposit" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div>
+        <div class="row" id="je-dep-date-row"><span>Paid on</span><input type="date" data-f="depositDate" style="width:auto"></div>
+        <div class="row" id="je-balance-row"><span>Balance to pay</span><b class="num" id="je-balance"></b></div>
+        <div class="row" id="je-dep-warn" style="color:var(--orange-t)">⚠️ The deposit is more than the quoted price.</div></div>
+      <div class="sf">Leave empty if no deposit has been paid.</div>
       <div class="group" style="margin-top:20px">
         <div class="row"><span>Labour rate per hour</span><input class="inp right" inputmode="decimal" data-f="rate" style="max-width:40%"></div>
         <div class="row" id="je-cover" style="display:none"><span>Quote covers</span><span class="v num" id="je-covers"></span></div></div>
@@ -1322,7 +1338,12 @@ a { color: var(--link); text-decoration: none; }
     function update() {
       const canSave = f.customerName.trim() && f.jobDescription.trim();
       ov.querySelector('[data-save]').disabled = !canSave;
-      const qp = Money.parsePence(f.quote), rp = Money.parsePence(f.rate);
+      const qp = Money.parsePence(f.quote), rp = Money.parsePence(f.rate), dp = Money.parsePence(f.deposit);
+      const hasDep = dp !== null && dp > 0;
+      body.querySelector('#je-dep-date-row').style.display = hasDep ? '' : 'none';
+      body.querySelector('#je-balance-row').style.display = hasDep && qp !== null && qp >= 0 ? '' : 'none';
+      if (hasDep && qp !== null) body.querySelector('#je-balance').textContent = fmt(Math.max(0, qp - dp));
+      body.querySelector('#je-dep-warn').style.display = hasDep && qp !== null && dp > qp ? '' : 'none';
       const cover = qp !== null && qp >= 0 && rp !== null ? Money.allowanceSeconds(qp, rp) : null;
       body.querySelector('#je-cover').style.display = cover !== null ? '' : 'none';
       if (cover !== null) body.querySelector('#je-covers').textContent = Duration.decimalHours(cover) + ' hrs';
@@ -1418,6 +1439,9 @@ a { color: var(--link); text-decoration: none; }
       target.deliveryTime = f.hasDeliver && /^\d{2}:\d{2}$/.test(f.deliverTime) ? f.deliverTime : null;
       const q = Money.parsePence(f.quote);
       target.quotePence = q !== null && q >= 0 ? q : null;
+      const dep = Money.parsePence(f.deposit);
+      if (dep !== null && dep > 0) { target.depositPence = dep; target.depositDate = f.depositDate || todayISO(); }
+      else { target.depositPence = null; target.depositDate = null; }
       const r = Money.parsePence(f.rate);
       target.ratePence = Math.max(0, r === null ? 0 : r);
       if (isNew) S.jobs.push(target);
@@ -2209,18 +2233,20 @@ a { color: var(--link); text-decoration: none; }
     const LW = 112, dash = '—';
     const info = [
       ['Status', job.status], ['Phone', job.phone || dash], ['Address', job.address || dash],
+      ...(hasDeposit(job) ? [['Deposit paid', moneyPdf(job.depositPence) + (job.depositDate ? ' on ' + longDay(job.depositDate) : '')],
+                             ...(balanceOf(job) !== null ? [['Balance to pay', moneyPdf(balanceOf(job))]] : [])] : []),
       [dateFields(job)[0][1].long, job.collectionDate ? longWhen(job, 'collectionDate') : dash],
       [dateFields(job)[1][1].long, job.deliveryDate ? longWhen(job, 'deliveryDate') : dash],
       ['Notes / job spec', job.notes || dash]
     ];
     info.forEach(([k, v], i) => {
-      const lines = wrap(v, W - LW - 12, 9, i === 0, i === 5 ? 4 : 2);
+      const lines = wrap(v, W - LW - 12, 9, i === 0, k.startsWith('Notes') ? 4 : 2);
       const labels = wrap(k, LW - 12, 8.5, true, 2);          // long labels wrap inside their own column
       const h = Math.max(lines.length, labels.length) * 11.5 + 6;
       box(M, y, LW, h, SHADE, EDGE);
       box(M + LW, y, W - LW, h, null, EDGE);
       labels.forEach((ln, j) => text(M + 6, y + 12 + j * 11.5, ln, 8.5, true));
-      lines.forEach((ln, j) => text(M + LW + 6, y + 12 + j * 11.5, ln, 9, i === 0));
+      lines.forEach((ln, j) => text(M + LW + 6, y + 12 + j * 11.5, ln, 9, i === 0 || k === 'Balance to pay'));
       y += h;
     });
     y += 12;
@@ -2379,6 +2405,8 @@ a { color: var(--link); text-decoration: none; }
           <tr><th>Status</th><td><b>${esc(job.status)}</b></td></tr>
           <tr><th>Phone</th><td>${job.phone ? esc(job.phone) : dash}</td></tr>
           <tr><th>Address</th><td>${job.address ? esc(job.address) : dash}</td></tr>
+          ${hasDeposit(job) ? `<tr><th>Deposit paid</th><td>${esc(fmt(job.depositPence))}${job.depositDate ? ' on ' + esc(longDay(job.depositDate)) : ''}</td></tr>
+            ${balanceOf(job) !== null ? `<tr><th>Balance to pay</th><td><b>${esc(fmt(balanceOf(job)))}</b></td></tr>` : ''}` : ''}
           <tr><th>${esc(dateFields(job)[0][1].long)}</th><td>${job.collectionDate ? esc(longWhen(job, 'collectionDate')) : dash}</td></tr>
           <tr><th>${esc(dateFields(job)[1][1].long)}</th><td>${job.deliveryDate ? esc(longWhen(job, 'deliveryDate')) : dash}</td></tr>
           <tr><th>Notes / job spec</th><td>${job.notes ? esc(job.notes).replace(/\n/g, '<br>') : dash}</td></tr>
