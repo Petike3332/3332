@@ -1204,6 +1204,14 @@ a { color: var(--link); text-decoration: none; }
   function startShift() {
     S.savedMsg = '';
     S.shift = Shift.start(S.shift, S.timerSel, Date.now());
+    // Starting work on a New job moves it to In Progress (Completed jobs are left alone)
+    const job = jobById(S.shift.jobID);
+    if (job && job.status === 'New') {
+      job.status = 'In Progress';
+      toast(`${job.customerName} is now In Progress`);
+      saveAll(); refreshAll();
+      return;
+    }
     saveAll(); renderTimerDynamic();
   }
   function stopShift() {
