@@ -324,6 +324,21 @@ a { color: var(--link); text-decoration: none; }
 .locbtn.on svg { fill: var(--link); }
 .locbtn.busy svg { opacity: .4; }
 
+/* Income forecast chart */
+.fchart { display: flex; gap: 6px; height: 150px; padding: 22px 12px 4px; align-items: stretch; }
+.fcol { flex: 1; border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; border-radius: 8px; min-width: 0; }
+.fcol.on { background: var(--fill); }
+.fv { font-size: 10px; color: var(--sub); font-variant-numeric: tabular-nums; height: 13px; white-space: nowrap; }
+.fstack { flex: 1; width: 60%; max-width: 30px; display: flex; flex-direction: column; justify-content: flex-end; }
+.fb { display: block; width: 100%; }
+.fb.booked { background: var(--blue); border-radius: 4px 4px 0 0; opacity: .75; }
+.fb.done { background: var(--green); }
+.fl { font-size: 11px; color: var(--sub); font-weight: 600; }
+.fcol.on .fl { color: var(--text); }
+.fkey { display: flex; gap: 16px; justify-content: center; font-size: 12px; color: var(--sub); padding: 4px 0 12px; }
+.fkey i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.fkey i.done { background: var(--green); } .fkey i.booked { background: var(--blue); opacity: .75; }
+
 </style>
 </head>
 <body>
@@ -757,7 +772,62 @@ a { color: var(--link); text-decoration: none; }
     }
   };
 
-  root.TM = { Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, sameBilling, JobRates,
+  // ---------------- Income forecast ----------------
+  // Which month a job's income belongs to, and how much. Whole pence throughout.
+  const Forecast = {
+    monthKey(dateISO) { return dateISO ? dateISO.slice(0, 7) : null; },
+    keyOfMs(ms) { const d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); },
+    /** { key: 'YYYY-MM' | null, basis } — booked jobs by handover date; completed jobs by when they finished. */
+    placement(job, lastLogMs) {
+      const done = job.status === 'Completed';
+      const handover = job.deliveryDate ? (job.deliveryType === 'pickup' ? 'pick-up date' : 'delivery date') : null;
+      if (done) {
+        if (job.deliveryDate) return { key: Forecast.monthKey(job.deliveryDate), basis: handover };
+        if (job.completedAt) return { key: Forecast.keyOfMs(job.completedAt), basis: 'completed' };
+        if (lastLogMs) return { key: Forecast.keyOfMs(lastLogMs), basis: 'last work logged' };
+        if (job.collectionDate) return { key: Forecast.monthKey(job.collectionDate), basis: job.collectionType === 'dropoff' ? 'drop-off date' : 'collection date' };
+        return { key: job.createdAt ? Forecast.keyOfMs(job.createdAt) : null, basis: 'date added' };
+      }
+      if (job.deliveryDate) return { key: Forecast.monthKey(job.deliveryDate), basis: handover };
+      if (job.collectionDate) return { key: Forecast.monthKey(job.collectionDate), basis: job.collectionType === 'dropoff' ? 'drop-off date' : 'collection date' };
+      if (job.meetingDate) return { key: Forecast.monthKey(job.meetingDate), basis: 'meeting date' };
+      return { key: null, basis: 'no date yet' };
+    },
+    /** Quoted price; a completed job without a quote uses its recorded labour; otherwise null (unpriced). */
+    value(job, laborPence) {
+      if (job.quotePence !== null && job.quotePence !== undefined) return { pence: job.quotePence, from: 'quote' };
+      if (job.status === 'Completed' && laborPence > 0) return { pence: laborPence, from: 'labour' };
+      return { pence: null, from: 'none' };
+    },
+    /** info: jobId -> { laborPence, lastLogMs } */
+    month(jobs, info, key) {
+      const out = { key, done: [], booked: [], doneTotal: 0, bookedTotal: 0, total: 0, unpriced: 0 };
+      for (const job of jobs) {
+        const i = info[job.id] || { laborPence: 0, lastLogMs: null };
+        const pl = Forecast.placement(job, i.lastLogMs);
+        if (pl.key !== key) continue;
+        const v = Forecast.value(job, i.laborPence);
+        const row = { job, pence: v.pence, from: v.from, basis: pl.basis };
+        if (job.status === 'Completed') { out.done.push(row); out.doneTotal += v.pence || 0; }
+        else { out.booked.push(row); out.bookedTotal += v.pence || 0; }
+        if (v.pence === null) out.unpriced += 1;
+      }
+      out.total = out.doneTotal + out.bookedTotal;
+      return out;
+    },
+    unscheduled(jobs, info) {
+      const rows = jobs.filter(j => j.status !== 'Completed' && Forecast.placement(j, null).key === null)
+        .map(job => ({ job, pence: Forecast.value(job, (info[job.id] || {}).laborPence || 0).pence }));
+      return { rows, total: rows.reduce((s, r) => s + (r.pence || 0), 0) };
+    },
+    shiftKey(key, n) {
+      const [y, m] = key.split('-').map(Number);
+      const d = new Date(y, m - 1 + n, 1);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+  };
+
+  root.TM = { Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, sameBilling, JobRates,
               Precision, Ranking, AddressText, Place, Candidates, JobLocation, LocationEditing, startOfDay, entryEarnings };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -766,7 +836,7 @@ a { color: var(--link); text-decoration: none; }
 /* TradeMate Stage 3 — web test build: screens. Mirrors the native SwiftUI views. */
 (function () {
   'use strict';
-  const { Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, JobRates, Precision, Ranking,
+  const { Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, JobRates, Precision, Ranking,
           AddressText, Place, Candidates, JobLocation, LocationEditing, startOfDay } = window.TM;
 
   const $ = id => document.getElementById(id);
@@ -1479,6 +1549,8 @@ a { color: var(--link); text-decoration: none; }
                             ratePence: JobRates.initialRate(S.settings.ratePence) };
       target.customerName = f.customerName.trim();
       target.jobDescription = f.jobDescription.trim();
+      if (f.status === 'Completed' && target.status !== 'Completed') target.completedAt = Date.now();
+      if (f.status !== 'Completed') target.completedAt = null;
       target.status = f.status;
       target.phone = f.phone.trim();
       LocationEditing.apply(location, f.address, target);   // chosen location saved with precision; hand edits clear it
@@ -1759,6 +1831,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Work</div><div class="group">
         <div class="row tap chev" id="ac-earn"><span>📊 Earnings summary</span><span></span></div>
         <div class="row tap chev" id="ac-logs"><span>🗒️ Time logs</span><span></span></div>
+        <div class="row tap chev" id="ac-fore"><span>📈 Income forecast</span><span></span></div>
         <div class="row btnrow tap" id="ac-add">⊕ Add time manually</div></div>
       <div class="sh">Business name</div><div class="group"><div class="row"><input type="text" id="ac-biz" placeholder="TradeMate"></div></div>
       <div class="sf">Shown on job sheets and exports. Leave blank to use TradeMate.</div>
@@ -1773,6 +1846,7 @@ a { color: var(--link); text-decoration: none; }
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
     $('ac-logs').onclick = () => openTimeLogs({ type: 'all' });
+    $('ac-fore').onclick = openForecast;
     $('ac-add').onclick = () => openLogEditor(null, { type: 'all' });
     $('ac-biz').value = st.businessName;
     $('ac-biz').oninput = e => { st.businessName = e.target.value; saveAll(); };
@@ -1852,6 +1926,64 @@ a { color: var(--link); text-decoration: none; }
       body.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { period = b.dataset.p; render(); });
       body.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { anchor = Period.shifted(period, anchor, +b.dataset.n); render(); });
       const fs = body.querySelector('#ea-f'); fs.value = Filter.key(filter); fs.onchange = () => { filter = Filter.parse(fs.value); render(); };
+    }
+    ov.refresh = render;
+    render();
+  }
+
+
+  // =========================================================================================
+  // INCOME FORECAST — done + booked-in jobs per month
+  // =========================================================================================
+  function forecastInfo() {
+    const info = {};
+    S.jobs.forEach(j => {
+      const logs = S.logs.filter(l => l.jobId === j.id);
+      info[j.id] = { laborPence: logs.reduce((s2, l) => s2 + TM.entryEarnings(entryOf(l)), 0), lastLogMs: logs.length ? Math.max(...logs.map(l => l.start)) : null };
+    });
+    return info;
+  }
+  const monthTitle = key => { const [y, m] = key.split('-').map(Number); return `${MONTH[m - 1]} ${y}`; };
+  const monthShort = key => MON[Number(key.split('-')[1]) - 1];
+
+  function openForecast() {
+    const ov = pushOverlay('page');
+    let key = Forecast.keyOfMs(Date.now());
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Account</button><div class="title">Income forecast</div><span></span></div><div class="body" id="fc"></div>`;
+    ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
+    const jobRow = r => `<div class="row tap" data-job="${esc(r.job.id)}"><div style="min-width:0"><div>${esc(r.job.customerName)}</div>
+        <div class="hint">${esc(r.job.jobDescription)} · ${esc(r.basis)}${r.from === 'labour' ? ' · no quote, labour value' : ''}</div></div>
+        ${r.pence === null ? '<span class="pill orange">No quote</span>' : `<b class="num">${fmt(r.pence)}</b>`}</div>`;
+    function render() {
+      const info = forecastInfo();
+      const m = Forecast.month(S.jobs, info, key);
+      const thisKey = Forecast.keyOfMs(Date.now());
+      const strip = [0, 1, 2, 3, 4, 5].map(n => { const k = Forecast.shiftKey(thisKey, n); const mm = Forecast.month(S.jobs, info, k); return { k, done: mm.doneTotal, booked: mm.bookedTotal }; });
+      const max = Math.max(1, ...strip.map(x => x.done + x.booked));
+      const un = Forecast.unscheduled(S.jobs, info);
+      ov.querySelector('#fc').innerHTML = `
+        <div class="periodnav" style="margin-top:8px"><button data-n="-1" aria-label="Previous month">‹</button><span class="ptitle">${monthTitle(key)}</span><button data-n="1" aria-label="Next month">›</button></div>
+        <div class="group"><div class="pad"><div class="hint" style="font-weight:600">Estimated income</div>
+          <div class="num" style="font-size:36px;font-weight:700">${fmt(m.total)}</div>
+          <div class="two" style="margin-top:10px">
+            <div><div class="hint">✅ Done</div><div class="big" style="color:var(--green-t)">${fmt(m.doneTotal)}</div><div class="hint">${m.done.length} ${m.done.length === 1 ? 'job' : 'jobs'}</div></div>
+            <div style="text-align:right"><div class="hint">📅 Booked in</div><div class="big" style="color:var(--blue)">${fmt(m.bookedTotal)}</div><div class="hint">${m.booked.length} ${m.booked.length === 1 ? 'job' : 'jobs'}</div></div>
+          </div>
+          ${m.unpriced ? `<div class="hint" style="color:var(--orange-t);margin-top:8px">⚠️ ${m.unpriced} ${m.unpriced === 1 ? 'job has' : 'jobs have'} no quoted price and ${m.unpriced === 1 ? "isn't" : "aren't"} included.</div>` : ''}
+        </div></div>
+        <div class="sh">Next 6 months</div><div class="group"><div class="fchart">${strip.map(x => `<button type="button" class="fcol ${x.k === key ? 'on' : ''}" data-k="${x.k}" aria-label="${monthTitle(x.k)}: ${fmt(x.done + x.booked)}">
+            <span class="fv">${x.done + x.booked ? fmt(x.done + x.booked).replace(/\.00$/, '') : ''}</span>
+            <span class="fstack"><span class="fb booked" style="height:${x.booked / max * 100}%"></span><span class="fb done" style="height:${x.done / max * 100}%"></span></span>
+            <span class="fl">${monthShort(x.k)}</span></button>`).join('')}</div>
+          <div class="fkey"><span><i class="done"></i>Done</span><span><i class="booked"></i>Booked in</span></div></div>
+        <div class="sh">Done in ${monthTitle(key)}</div><div class="group">${m.done.length ? m.done.map(jobRow).join('') : '<div class="row hint">No completed jobs in this month.</div>'}</div>
+        <div class="sh">Booked in for ${monthTitle(key)}</div><div class="group">${m.booked.length ? m.booked.map(jobRow).join('') : '<div class="row hint">No jobs booked in for this month.</div>'}</div>
+        ${un.rows.length ? `<div class="sh">Not scheduled yet · ${fmt(un.total)}</div><div class="group">${un.rows.map(r => jobRow(Object.assign({ basis: 'add a date to include it', from: 'quote' }, r))).join('')}</div>` : ''}
+        <div class="sf">Based on quoted prices. Booked-in jobs count in the month of their delivery or pick-up date, otherwise the collection, drop-off or meeting date. Completed jobs count in the month they were handed over or marked Completed. A completed job without a quote uses its recorded labour. Deposits are part of the price, so they aren't added again.</div>`;
+      const body = ov.querySelector('#fc');
+      body.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { key = Forecast.shiftKey(key, +b.dataset.n); render(); });
+      body.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { key = b.dataset.k; render(); });
+      body.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobEditor(r.dataset.job));
     }
     ov.refresh = render;
     render();
