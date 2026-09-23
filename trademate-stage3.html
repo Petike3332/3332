@@ -876,6 +876,10 @@ a { color: var(--link); text-decoration: none; }
     }
   };
 
+  // Enquiries (possible jobs, e.g. a quote visit) and enquiries that didn't go ahead are not work yet:
+  // they never count towards income, the forecast, or job numbers.
+  const isEnquiry = job => job.status === 'Enquiry' || job.status === 'Declined';
+
   // ---------------- Income forecast ----------------
   // Which month a job's income belongs to, and how much. Whole pence throughout.
   const Forecast = {
@@ -904,6 +908,7 @@ a { color: var(--link); text-decoration: none; }
     month(jobs, info, key) {
       const out = { key, done: [], booked: [], doneTotal: 0, bookedTotal: 0, total: 0, unpriced: 0 };
       for (const job of jobs) {
+        if (isEnquiry(job)) continue;
         const i = info[job.id] || { laborPence: 0, lastLogMs: null };
         const pl = Forecast.placement(job, i.lastLogMs);
         if (pl.key !== key) continue;
@@ -917,7 +922,7 @@ a { color: var(--link); text-decoration: none; }
       return out;
     },
     unscheduled(jobs, info) {
-      const rows = jobs.filter(j => j.status !== 'Completed' && Forecast.placement(j, null).key === null)
+      const rows = jobs.filter(j => j.status !== 'Completed' && !isEnquiry(j) && Forecast.placement(j, null).key === null)
         .map(job => ({ job, pence: Forecast.value(job, (info[job.id] || {}).laborPence || 0).pence }));
       return { rows, total: rows.reduce((s, r) => s + (r.pence || 0), 0) };
     },
@@ -928,7 +933,7 @@ a { color: var(--link); text-decoration: none; }
     }
   };
 
-  root.TM = { Income, Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, sameBilling, JobRates,
+  root.TM = { isEnquiry, Income, Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, sameBilling, JobRates,
               Precision, Ranking, AddressText, Place, Candidates, JobLocation, LocationEditing, startOfDay, entryEarnings };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -937,7 +942,7 @@ a { color: var(--link); text-decoration: none; }
 /* TradeMate Stage 3 — web test build: screens. Mirrors the native SwiftUI views. */
 (function () {
   'use strict';
-  const { Income, Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, JobRates, Precision, Ranking,
+  const { isEnquiry, Income, Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, JobRates, Precision, Ranking,
           AddressText, Place, Candidates, JobLocation, LocationEditing, startOfDay } = window.TM;
 
   const $ = id => document.getElementById(id);
@@ -992,7 +997,7 @@ a { color: var(--link); text-decoration: none; }
     let changed = false;
     const used = S.jobs.map(j => j.number).filter(n => Number.isInteger(n) && n > 0);
     let next = Math.max(Number.isInteger(S.settings.nextJobNumber) ? S.settings.nextJobNumber : 1, (used.length ? Math.max(...used) : 0) + 1);
-    [...S.jobs].filter(j => !(Number.isInteger(j.number) && j.number > 0))
+    [...S.jobs].filter(j => !isEnquiry(j) && !(Number.isInteger(j.number) && j.number > 0))
       .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || String(a.id).localeCompare(String(b.id)))
       .forEach(j => { j.number = next++; changed = true; });
     if (S.settings.nextJobNumber !== next) { S.settings.nextJobNumber = next; changed = true; }
@@ -1018,7 +1023,8 @@ a { color: var(--link); text-decoration: none; }
     });
     document.body.appendChild(bg);
   }
-  const statusPill = s => `<span class="pill ${s === 'New' ? 'blue' : s === 'In Progress' ? 'green' : 'gray'}">${esc(s)}</span>`;
+  const statusLabel = s => (s === 'Declined' ? 'Not going ahead' : s);
+  const statusPill = s => `<span class="pill ${s === 'New' ? 'blue' : s === 'In Progress' ? 'green' : s === 'Enquiry' ? 'orange' : 'gray'}">${esc(statusLabel(s))}</span>`;
   const phoneUrl = p => { const d = String(p || '').replace(/[^0-9+]/g, ''); return d ? 'tel:' + d : null; };
   const directionsUrl = j => JobLocation.has(j) ? `https://maps.apple.com/?daddr=${j.latitude},${j.longitude}`
     : (j.address ? 'https://maps.apple.com/?daddr=' + encodeURIComponent(j.address) : null);
@@ -1175,7 +1181,7 @@ a { color: var(--link); text-decoration: none; }
     const now = Date.now(), sh = S.shift, job = activeJob();
     // picker
     const sel = $('tpick');
-    const opts = `<option value="">${GENERAL}</option>` + [...S.jobs].sort((a, b) => a.customerName.localeCompare(b.customerName))
+    const opts = `<option value="">${GENERAL}</option>` + [...S.jobs].filter(j => j.status !== 'Declined' || j.id === activeJobID()).sort((a, b) => a.customerName.localeCompare(b.customerName))
       .map(j => `<option value="${esc(j.id)}">${esc(jobLabel(j))}</option>`).join('');
     if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.dataset.opts = opts; }
     sel.value = activeJobID() || '';
@@ -1359,7 +1365,7 @@ a { color: var(--link); text-decoration: none; }
         return `<div class="daterow" style="color:var(--green-t)">✅ ${k.done}: <b>${esc(dp.actual)}</b>${dp.booked ? ` <span style="color:var(--sub)">(booked ${esc(dp.booked)})</span>` : ''}
           <button type="button" class="minilink" data-undone="${esc(j.id)}" data-f="${f}">Undo</button></div>`;
       }
-      const open = j.status !== 'Completed', diff = dayDiff(j[f]);
+      const open = j.status !== 'Completed' && j.status !== 'Declined', diff = dayDiff(j[f]);
       return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${k.icon} ${k.card || k.short}: <b>${esc(shortWhen(j, f))}</b>${open ? ' · ' + whenLabel(diff) : ''}${f === 'meetingDate' && j.meetingNote ? ` <span class="muted">(${esc(j.meetingNote)})</span>` : ''}
         ${open ? `<button type="button" class="minilink" data-done="${esc(j.id)}" data-f="${f}">✓ Mark ${esc(k.done.toLowerCase())}</button>` : ''}
         <button type="button" class="minilink" data-cal="${esc(j.id)}" data-f="${f}">+ Calendar</button></div>`;
@@ -1372,7 +1378,7 @@ a { color: var(--link); text-decoration: none; }
     comingDay = startOfDay(Date.now());
     const ev = [];
     S.jobs.forEach(j => {
-      if (j.status === 'Completed') return;
+      if (j.status === 'Completed' || j.status === 'Declined') return;
       dateFields(j).forEach(([f, k]) => { if (j[f] && !isDone(j, f)) ev.push({ j, f, k, label: k.short, icon: k.icon, diff: dayDiff(j[f]), time: timeOf(j, f) }); });
     });
     ev.sort((a, b) => a.diff - b.diff || (a.time || '99:99').localeCompare(b.time || '99:99'));
@@ -1388,9 +1394,24 @@ a { color: var(--link); text-decoration: none; }
         { label: 'Cancel', role: 'cancel' }]);
     });
   }
+  function turnIntoJob(id) {
+    const j = jobById(id); if (!j) return;
+    j.status = 'New';
+    ensureJobNumbers();
+    saveAll();
+    toast(`${j.customerName} is now job ${jobNo(j)}.`);
+    jumpToJob(id);
+  }
+  function notGoingAhead(id) {
+    const j = jobById(id); if (!j) return;
+    actionSheet(`${j.customerName}: not going ahead?`, 'Keep it out of the way in case they come back, or delete it.', [
+      { label: 'Keep under "Not going ahead"', action: () => { j.status = 'Declined'; saveAll(); refreshAll(); toast('Moved to "Not going ahead".'); } },
+      { label: 'Delete it', role: 'destructive', action: () => setTimeout(() => requestDeleteJob(j), 250) },
+      { label: 'Cancel', role: 'cancel' }]);
+  }
   function jumpToJob(id) {
     S.jobSearch = '';
-    const jj = jobById(id); if (jj) S.jobTab = jj.status === 'Completed' ? 'completed' : 'active';
+    const jj = jobById(id); if (jj) S.jobTab = isEnquiry(jj) ? 'enquiries' : jj.status === 'Completed' ? 'completed' : 'active';
     showTab('jobs');
     renderJobs();
     setTimeout(() => {
@@ -1511,7 +1532,7 @@ a { color: var(--link); text-decoration: none; }
         <input type="search" id="jsearch" placeholder="Customer, job, address or #number" value="${esc(S.jobSearch)}"></div>
       <div id="jtabs"></div>
       <div id="jlist"></div>`;
-    $('jadd').onclick = () => openJobEditor(null);
+    $('jadd').onclick = () => openJobEditor(null, S.jobTab === 'enquiries' ? { enquiry: true } : undefined);
     $('jsearch').addEventListener('input', e => { S.jobSearch = e.target.value; renderJobList(); });
     renderJobList();
   }
@@ -1523,11 +1544,15 @@ a { color: var(--link); text-decoration: none; }
       || [j.customerName, j.jobDescription, j.address, j.phone].some(v => (v || '').toLowerCase().includes(q));
     const info = forecastInfo();
     const doneOn = j => Income.completedOn(j, (info[j.id] || {}).lastLogMs) || j.createdAt || 0;
-    const active = S.jobs.filter(j => j.status !== 'Completed').sort((a, b) => b.createdAt - a.createdAt);
+    const nextDate = j => { const ds = dateFields(j).filter(([f]) => j[f] && !isDone(j, f)).map(([f]) => bookedMs(j[f], timeOf(j, f))); return ds.length ? Math.min(...ds) : Infinity; };
+    const enquiries = S.jobs.filter(j => j.status === 'Enquiry').sort((a, b) => nextDate(a) - nextDate(b) || b.createdAt - a.createdAt);
+    const declined = S.jobs.filter(j => j.status === 'Declined').sort((a, b) => b.createdAt - a.createdAt);
+    const active = S.jobs.filter(j => !isEnquiry(j) && j.status !== 'Completed').sort((a, b) => b.createdAt - a.createdAt);
     const completed = S.jobs.filter(j => j.status === 'Completed').sort((a, b) => doneOn(b) - doneOn(a));
     const tabs = $('jtabs');
     if (tabs) {
       tabs.innerHTML = S.jobs.length && !q ? `<div class="seg" style="margin-top:0">
+        <button data-jt="enquiries" class="${S.jobTab === 'enquiries' ? 'on' : ''}">Enquiries ${enquiries.length}</button>
         <button data-jt="active" class="${S.jobTab === 'active' ? 'on' : ''}">Active ${active.length}</button>
         <button data-jt="completed" class="${S.jobTab === 'completed' ? 'on' : ''}">Completed ${completed.length}</button></div>` : '';
       tabs.querySelectorAll('[data-jt]').forEach(bt => bt.onclick = () => { S.jobTab = bt.dataset.jt; renderJobList(); });
@@ -1535,9 +1560,13 @@ a { color: var(--link); text-decoration: none; }
     // Searching looks through both lists; otherwise show the chosen tab. Completed jobs get month headings.
     let jobs, headingFor = () => null;
     if (q) {
-      const a1 = active.filter(matches), c1 = completed.filter(matches);
-      jobs = [...a1, ...c1];
-      headingFor = (j, i) => (i === 0 && a1.length ? 'Active' : (i === a1.length && c1.length ? 'Completed' : null));
+      const groups = [['Enquiries', enquiries.filter(matches)], ['Active', active.filter(matches)], ['Completed', completed.filter(matches)], ['Not going ahead', declined.filter(matches)]];
+      jobs = groups.flatMap(g => g[1]);
+      const starts = new Map(); let n = 0; groups.forEach(([name, list]) => { if (list.length) starts.set(n, name); n += list.length; });
+      headingFor = (j, i) => starts.get(i) || null;
+    } else if (S.jobTab === 'enquiries') {
+      jobs = [...enquiries, ...declined];
+      headingFor = (j, i) => (i === enquiries.length && declined.length ? 'Not going ahead' : null);
     } else if (S.jobTab === 'completed') {
       jobs = completed;
       const mk = j => { const d = new Date(doneOn(j)); return `${MONTH[d.getMonth()]} ${d.getFullYear()}`; };
@@ -1547,6 +1576,7 @@ a { color: var(--link); text-decoration: none; }
     if (!jobs.length) {
       box.innerHTML = q ? `<div class="empty"><b>No results</b>Nothing matches "${esc(S.jobSearch)}".</div>`
         : S.jobTab === 'completed' ? `<div class="empty"><b>No completed jobs yet</b>Jobs move here when you set them to Completed.</div>`
+        : S.jobTab === 'enquiries' ? `<div class="empty"><b>No enquiries</b>Tap + to add one, e.g. a quote visit. Turn it into a job when they say yes.</div>`
         : `<div class="empty"><b>No active jobs</b>Everything is completed. Tap + to add a new job.</div>`;
       return;
     }
@@ -1560,6 +1590,8 @@ a { color: var(--link); text-decoration: none; }
         ${dateRows(j)}
         ${depositRow(j)}
         ${photoStrip(j)}
+        ${j.status === 'Enquiry' ? `<div class="acts"><button type="button" class="btn prim small" data-convert="${esc(j.id)}">✓ Turn into job</button><button type="button" class="btn tint small" data-decline="${esc(j.id)}">Not going ahead</button></div>` : ''}
+        ${j.status === 'Declined' ? `<div class="acts"><button type="button" class="btn tint small" data-reopen="${esc(j.id)}">↩ Reopen enquiry</button></div>` : ''}
         <div class="acts">${call ? `<a class="btn prim small" href="${call}">📞 Call</a>` : ''}${dir ? `<a class="btn tint small" href="${dir}" target="_blank" rel="noopener">➤ Directions</a>` : ''}<button type="button" class="btn tint small" data-sheet="${esc(j.id)}">🖨️ Job sheet</button></div>
       </div>`, [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }], j.id, 'jobcard');
     }).join('')}<div class="sf" style="margin-top:0">Swipe left on a job to edit or delete it.</div>`;
@@ -1568,6 +1600,9 @@ a { color: var(--link); text-decoration: none; }
       action: (i, a) => a === 0 ? openJobEditor(jobs[i].id) : requestDeleteJob(jobs[i])
     });
     box.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => openJobSheet(b.dataset.sheet));
+    box.querySelectorAll('[data-convert]').forEach(b => b.onclick = () => turnIntoJob(b.dataset.convert));
+    box.querySelectorAll('[data-decline]').forEach(b => b.onclick = () => notGoingAhead(b.dataset.decline));
+    box.querySelectorAll('[data-reopen]').forEach(b => b.onclick = () => { const j = jobById(b.dataset.reopen); if (!j) return; j.status = 'Enquiry'; saveAll(); refreshAll(); toast(`${j.customerName} is an enquiry again.`); });
     bindPhotoViews(box);
     box.querySelectorAll('[data-cal]').forEach(b => b.onclick = () => addToCalendar(b.dataset.cal, b.dataset.f));
     box.querySelectorAll('[data-done]').forEach(b => b.onclick = () => markDone(b.dataset.done, b.dataset.f));
@@ -1608,6 +1643,7 @@ a { color: var(--link); text-decoration: none; }
     } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', pricing: 'fixed', deposit: '', depositDate: todayISO(), rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
           hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', collectTime: '', deliverTime: '', collectDone: false, deliverDone: false, collectDoneAt: null, deliverDoneAt: null, meetingDoneAt: null, hasMeeting: false, meeting: todayISO(), meetingTime: '', meetingNote: '', meetingDone: false, meetingPlace: 'customer', address: '', notes: '', clientId: null, saveClient: false };
     let location = job ? LocationEditing.load(job) : null;
+    if (!job && preset && preset.enquiry) f.status = 'Enquiry';
     if (!job && preset && preset.clientId && clientById(preset.clientId)) {   // "New job" from a client's page
       const c = clientById(preset.clientId);
       Object.assign(f, { clientId: c.id, customerName: c.name, phone: c.phone || '', address: c.address || '' });
@@ -1617,7 +1653,7 @@ a { color: var(--link); text-decoration: none; }
     const editId = job ? job.id : uid();   // new jobs get their id now, so photos can be added before saving
     let saved = false;
 
-    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-cancel>Cancel</button><div class="title">${job ? 'Edit job ' + esc(jobNo(job)) : 'New job'}</div>
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-cancel>Cancel</button><div class="title">${job ? (isEnquiry(job) ? 'Edit enquiry' : 'Edit job ' + esc(jobNo(job))) : (f.status === 'Enquiry' ? 'New enquiry' : 'New job')}</div>
       <button class="linkbtn bold r" data-save>Save</button></div><div class="body" id="je"></div>`;
     const body = ov.querySelector('#je');
     body.innerHTML = `
@@ -1630,7 +1666,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sf" id="je-client-sf">Start typing a saved client's name to fill in their details.</div>
       <div class="sh">Job</div><div class="group">
         <div class="row"><textarea data-f="jobDescription" placeholder="Job / item description" rows="2" style="min-height:44px"></textarea></div>
-        <div class="row"><span>Status</span><select data-f="status" style="width:auto"><option>New</option><option>In Progress</option><option>Completed</option></select></div>
+        <div class="row"><span>Status</span><select data-f="status" style="width:auto"><option>Enquiry</option><option>New</option><option>In Progress</option><option>Completed</option><option value="Declined">Not going ahead</option></select></div>
         <div class="row"><span>Pricing</span><div class="seg segmini" style="max-width:62%" role="radiogroup"><button type="button" data-pv="fixed">Fixed price</button><button type="button" data-pv="hourly">Hourly</button></div></div>
         <div class="row"><span id="je-quote-lbl">Quoted price</span><input class="inp right" inputmode="decimal" data-f="quote" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div></div>
       <div class="sh">Deposit</div><div class="group">
@@ -1893,12 +1929,8 @@ a { color: var(--link); text-decoration: none; }
         f.clientId = c.id;
       }
       target.clientId = f.clientId || null;   // the job keeps its own copy of the details; the link is for the client's history
-      if (isNew) {
-        ensureJobNumbers();                                   // make sure the counter is past every existing number
-        target.number = S.settings.nextJobNumber;
-        S.settings.nextJobNumber = target.number + 1;
-        S.jobs.push(target);
-      }
+      if (isNew) S.jobs.push(target);
+      ensureJobNumbers();   // gives a new job (or an enquiry just turned into a job) the next number; enquiries get none
       saved = true;
       saveAll(); closeOverlay(ov);
     }
@@ -2283,7 +2315,7 @@ a { color: var(--link); text-decoration: none; }
     if (payload.version > BACKUP_VERSION) return 'it was made by a newer version of TradeMate. Update this app first';
     const { jobs, logs, settings, shift } = payload.data;
     if (!Array.isArray(jobs) || !Array.isArray(logs)) return 'its jobs or time logs are missing';
-    const STATUSES = ['New', 'In Progress', 'Completed'];
+    const STATUSES = ['Enquiry', 'New', 'In Progress', 'Completed', 'Declined'];
     for (let i = 0; i < jobs.length; i++) {
       const j = jobs[i];
       if (!isObj(j) || !isStr(j.id) || !j.id || !isStr(j.customerName) || !isStr(j.jobDescription) || !STATUSES.includes(j.status)
@@ -2460,7 +2492,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">23 Sep 2026, 18:51</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">23 Sep 2026, 19:18</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
