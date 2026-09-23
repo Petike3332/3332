@@ -382,6 +382,10 @@ a { color: var(--link); text-decoration: none; }
 .clientsugg { width: 100%; border: 0; border-top: 1px solid var(--sep); background: var(--accent-tint); color: var(--text); font: inherit; display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; }
 .clientsugg .hint:last-child { color: var(--accent); font-weight: 600; }
 
+/* Job numbers and list headings */
+.jno { color: var(--sub); font-weight: 600; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.sh.jhead { margin-top: 6px; }
+
 </style>
 </head>
 <body>
@@ -953,7 +957,7 @@ a { color: var(--link); text-decoration: none; }
     settings: Object.assign({ businessName: '', ratePence: 3500, currency: 'GBP', appearance: 'system' }, load(K.settings, {})),
     shift: Object.assign(Shift.create(), load(K.shift, {})),
     clients: load(K.clients, []),
-    timerSel: null, jobSearch: '', savedMsg: ''
+    timerSel: null, jobSearch: '', jobTab: 'active', savedMsg: ''
   };
   // Shown at most once every 8s, so a stream of saves while storage is broken doesn't spam toasts.
   let lastSaveFailToast = 0;
@@ -979,7 +983,21 @@ a { color: var(--link); text-decoration: none; }
   const allEntries = () => S.logs.map(entryOf);
   const jobEntries = job => S.logs.filter(l => l.jobId === job.id).map(entryOf);
   const totalWorked = job => S.logs.filter(l => l.jobId === job.id).reduce((s, l) => s + l.workedSeconds, 0);
-  const jobLabel = j => j.customerName + ' – ' + j.jobDescription;
+  const jobNo = j => (j && Number.isInteger(j.number) ? '#' + j.number : '');
+  const jobLabel = j => (Number.isInteger(j.number) ? '#' + j.number + ' · ' : '') + j.customerName + ' – ' + j.jobDescription;
+  // Permanent job numbers (#1, #2 ...): given in the order jobs were created and never reused, even
+  // after a job is deleted. Jobs without one (older jobs, restored backups) are numbered oldest first,
+  // after the highest number already in use. Returns true if anything changed.
+  function ensureJobNumbers() {
+    let changed = false;
+    const used = S.jobs.map(j => j.number).filter(n => Number.isInteger(n) && n > 0);
+    let next = Math.max(Number.isInteger(S.settings.nextJobNumber) ? S.settings.nextJobNumber : 1, (used.length ? Math.max(...used) : 0) + 1);
+    [...S.jobs].filter(j => !(Number.isInteger(j.number) && j.number > 0))
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || String(a.id).localeCompare(String(b.id)))
+      .forEach(j => { j.number = next++; changed = true; });
+    if (S.settings.nextJobNumber !== next) { S.settings.nextJobNumber = next; changed = true; }
+    return changed;
+  }
 
   // ---------- Small helpers ----------
   let toastT;
@@ -1372,6 +1390,7 @@ a { color: var(--link); text-decoration: none; }
   }
   function jumpToJob(id) {
     S.jobSearch = '';
+    const jj = jobById(id); if (jj) S.jobTab = jj.status === 'Completed' ? 'completed' : 'active';
     showTab('jobs');
     renderJobs();
     setTimeout(() => {
@@ -1489,7 +1508,8 @@ a { color: var(--link); text-decoration: none; }
       <div style="display:flex;justify-content:space-between;align-items:center;padding-right:8px">
         <div class="large">Jobs</div><button class="linkbtn" id="jadd" aria-label="New job" style="font-size:30px">＋</button></div>
       <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-        <input type="search" id="jsearch" placeholder="Customer, job or address" value="${esc(S.jobSearch)}"></div>
+        <input type="search" id="jsearch" placeholder="Customer, job, address or #number" value="${esc(S.jobSearch)}"></div>
+      <div id="jtabs"></div>
       <div id="jlist"></div>`;
     $('jadd').onclick = () => openJobEditor(null);
     $('jsearch').addEventListener('input', e => { S.jobSearch = e.target.value; renderJobList(); });
@@ -1498,14 +1518,43 @@ a { color: var(--link); text-decoration: none; }
   function renderJobList() {
     const box = $('jlist'); if (!box) return;
     const q = S.jobSearch.trim().toLowerCase();
-    const jobs = [...S.jobs].sort((a, b) => b.createdAt - a.createdAt)
-      .filter(j => !q || [j.customerName, j.jobDescription, j.address].some(v => (v || '').toLowerCase().includes(q)));
+    const qNum = q.replace(/^#/, '');
+    const matches = j => !q || (/^\d+$/.test(qNum) && String(j.number) === qNum)
+      || [j.customerName, j.jobDescription, j.address, j.phone].some(v => (v || '').toLowerCase().includes(q));
+    const info = forecastInfo();
+    const doneOn = j => Income.completedOn(j, (info[j.id] || {}).lastLogMs) || j.createdAt || 0;
+    const active = S.jobs.filter(j => j.status !== 'Completed').sort((a, b) => b.createdAt - a.createdAt);
+    const completed = S.jobs.filter(j => j.status === 'Completed').sort((a, b) => doneOn(b) - doneOn(a));
+    const tabs = $('jtabs');
+    if (tabs) {
+      tabs.innerHTML = S.jobs.length && !q ? `<div class="seg" style="margin-top:0">
+        <button data-jt="active" class="${S.jobTab === 'active' ? 'on' : ''}">Active ${active.length}</button>
+        <button data-jt="completed" class="${S.jobTab === 'completed' ? 'on' : ''}">Completed ${completed.length}</button></div>` : '';
+      tabs.querySelectorAll('[data-jt]').forEach(bt => bt.onclick = () => { S.jobTab = bt.dataset.jt; renderJobList(); });
+    }
+    // Searching looks through both lists; otherwise show the chosen tab. Completed jobs get month headings.
+    let jobs, headingFor = () => null;
+    if (q) {
+      const a1 = active.filter(matches), c1 = completed.filter(matches);
+      jobs = [...a1, ...c1];
+      headingFor = (j, i) => (i === 0 && a1.length ? 'Active' : (i === a1.length && c1.length ? 'Completed' : null));
+    } else if (S.jobTab === 'completed') {
+      jobs = completed;
+      const mk = j => { const d = new Date(doneOn(j)); return `${MONTH[d.getMonth()]} ${d.getFullYear()}`; };
+      headingFor = (j, i) => (i === 0 || mk(jobs[i - 1]) !== mk(j) ? mk(j) : null);
+    } else jobs = active;
     if (!S.jobs.length) { box.innerHTML = `<div class="empty"><div class="ico">💼</div><b>No jobs yet</b>Tap + to add your first customer job.</div>`; return; }
-    if (!jobs.length) { box.innerHTML = `<div class="empty"><b>No results</b>Nothing matches "${esc(S.jobSearch)}".</div>`; return; }
-    box.innerHTML = `${jobs.map(j => {
+    if (!jobs.length) {
+      box.innerHTML = q ? `<div class="empty"><b>No results</b>Nothing matches "${esc(S.jobSearch)}".</div>`
+        : S.jobTab === 'completed' ? `<div class="empty"><b>No completed jobs yet</b>Jobs move here when you set them to Completed.</div>`
+        : `<div class="empty"><b>No active jobs</b>Everything is completed. Tap + to add a new job.</div>`;
+      return;
+    }
+    box.innerHTML = `${jobs.map((j, i) => {
       const call = phoneUrl(j.phone), dir = directionsUrl(j);
-      return swipeRow(`<div class="jobrow">
-        <div class="top"><span class="name">${esc(j.customerName)}</span>${statusPill(j.status)}</div>
+      const h = headingFor(j, i);
+      return (h ? `<div class="sh jhead">${esc(h)}</div>` : '') + swipeRow(`<div class="jobrow">
+        <div class="top"><span class="name">${jobNo(j) ? `<span class="jno">${esc(jobNo(j))}</span>` : ''}${esc(j.customerName)}</span>${statusPill(j.status)}</div>
         <div class="desc">${esc(j.jobDescription)}</div>
         ${j.address ? `<div class="addr">📍 ${esc(j.address)}</div>` : ''}
         ${dateRows(j)}
@@ -1568,7 +1617,7 @@ a { color: var(--link); text-decoration: none; }
     const editId = job ? job.id : uid();   // new jobs get their id now, so photos can be added before saving
     let saved = false;
 
-    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-cancel>Cancel</button><div class="title">${job ? 'Edit job' : 'New job'}</div>
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-cancel>Cancel</button><div class="title">${job ? 'Edit job ' + esc(jobNo(job)) : 'New job'}</div>
       <button class="linkbtn bold r" data-save>Save</button></div><div class="body" id="je"></div>`;
     const body = ov.querySelector('#je');
     body.innerHTML = `
@@ -1844,7 +1893,12 @@ a { color: var(--link); text-decoration: none; }
         f.clientId = c.id;
       }
       target.clientId = f.clientId || null;   // the job keeps its own copy of the details; the link is for the client's history
-      if (isNew) S.jobs.push(target);
+      if (isNew) {
+        ensureJobNumbers();                                   // make sure the counter is past every existing number
+        target.number = S.settings.nextJobNumber;
+        S.settings.nextJobNumber = target.number + 1;
+        S.jobs.push(target);
+      }
       saved = true;
       saveAll(); closeOverlay(ov);
     }
@@ -2234,7 +2288,8 @@ a { color: var(--link); text-decoration: none; }
       const j = jobs[i];
       if (!isObj(j) || !isStr(j.id) || !j.id || !isStr(j.customerName) || !isStr(j.jobDescription) || !STATUSES.includes(j.status)
           || !isWholeOrNull(j.ratePence) || !isWholeOrNull(j.quotePence) || !isWholeOrNull(j.depositPence)
-          || !(j.pricing === undefined || j.pricing === 'fixed' || j.pricing === 'hourly'))
+          || !(j.pricing === undefined || j.pricing === 'fixed' || j.pricing === 'hourly')
+          || !(j.number === undefined || (Number.isInteger(j.number) && j.number > 0)))
         return `job ${i + 1} is damaged`;
     }
     for (let i = 0; i < logs.length; i++) {
@@ -2341,6 +2396,7 @@ a { color: var(--link); text-decoration: none; }
       // which would become one huge log when stopped): restore the timer as stopped instead.
       S.shift = payload.data.shift && payload.data.shift.isRunning ? Shift.create() : Object.assign(Shift.create(), payload.data.shift || {});
       S.timerSel = null;
+      ensureJobNumbers();
       const ok = saveAll();
       // Data-only restore: photos kept on the device whose job isn't in the restored data can't be seen
       // anywhere, so remove them. Only done once the restored data has actually been saved.
@@ -2404,7 +2460,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">23 Sep 2026, 15:42</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">23 Sep 2026, 18:51</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
@@ -2610,7 +2666,7 @@ a { color: var(--link); text-decoration: none; }
         </div>
         <div class="group" style="margin-top:16px"><div class="row btnrow tap" id="cd-new">⊕ New job for ${esc(c.name)}</div></div>
         <div class="sh">Jobs</div><div class="group">${jobs.length ? jobs.map(j => { const v = Income.value(j, (info[j.id] || {}).laborPence || 0); return `<div class="row tap" data-job="${esc(j.id)}"><div style="min-width:0">
-            <div>${esc(j.jobDescription)}</div><div class="hint">${esc(sheetDate(j.createdAt || Date.now()))}</div></div>
+            <div>${esc(j.jobDescription)}</div><div class="hint">${esc([jobNo(j), sheetDate(j.createdAt || Date.now())].filter(Boolean).join(' · '))}</div></div>
             <div style="text-align:right">${statusPill(j.status)}${v.pence !== null ? `<div class="hint num" style="margin-top:4px">${esc(fmt(v.pence))}</div>` : ''}</div></div>`; }).join('')
           : '<div class="row hint">No jobs for this client yet.</div>'}</div>
         <div class="sf">Changing a client's details applies to new jobs. Existing jobs keep the details they were saved with.</div>`;
@@ -3159,7 +3215,7 @@ a { color: var(--link); text-decoration: none; }
     const mark = markJpeg(), inf = jpegInfo(mark);
     if (inf) { images.push({ bytes: mark, w: inf.w, h: inf.h, comps: inf.comps }); ops.push(`q 26 0 0 26 ${f(M)} ${Y(y + 26)} cm /Im${images.length} Do Q`); }
     text(M + 33, y + 13, fit(brandName(), W * 0.55, 15, true), 15, true, BLUE);
-    text(M + 33, y + 25, 'Job sheet', 8.5, false, GREY);
+    text(M + 33, y + 25, 'Job sheet' + (jobNo(job) ? '  ·  Job ' + jobNo(job) : ''), 8.5, false, GREY);
     const printed = 'Printed ' + sheetDate(Date.now());
     text(PDF_W - M - tw(printed, 8.5, false), y + 13, printed, 8.5, false, GREY);
     hline(M, PDF_W - M, y + 31, BLUE, 2);
@@ -3339,7 +3395,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="title">${esc(job.customerName)}</div><button class="linkbtn bold r" data-share>Share</button></div>
       <div class="body"><div class="paper">
         <div class="ps-head"><div class="ps-brand"><img src="data:image/jpeg;base64,${MARK_JPEG_B64}" alt="">
-          <div><div class="ps-name">${esc(brandName())}</div><div class="ps-sub">Job sheet</div></div></div>
+          <div><div class="ps-name">${esc(brandName())}</div><div class="ps-sub">Job sheet${jobNo(job) ? ' · Job ' + esc(jobNo(job)) : ''}</div></div></div>
           <div class="ps-sub">Printed ${esc(sheetDate(Date.now()))}</div></div>
         <h1>${esc(job.customerName)}</h1><div class="ps-job">${esc(job.jobDescription)}</div>
         <table class="ps-table ps-info">
@@ -3397,6 +3453,7 @@ a { color: var(--link); text-decoration: none; }
   }
   document.querySelectorAll('#tabbar button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
+  if (ensureJobNumbers()) saveAll();   // numbers any existing jobs (oldest = #1) the first time this version runs
   requestPersistentStorage();
   registerOfflineSupport();
   applyTheme();
