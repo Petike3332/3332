@@ -82,6 +82,7 @@ a { color: var(--link); text-decoration: none; }
 .btn:active { opacity: .8; }
 .btn.prim { background: var(--accent); color: #fff; }
 :root[data-theme="dark"] .btn.prim { color: #0b1a2e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.prim { color: #0b1a2e; } }
 .btn.green { background: var(--green); color: #fff; }
 .btn.red { background: var(--red); color: #fff; }
 .btn.orange { background: var(--orange); color: #fff; }
@@ -561,6 +562,8 @@ a { color: var(--link); text-decoration: none; }
   };
 
   const Reporting = {
+    // Note: a log belongs to the period containing its START time, so a shift crossing midnight
+    // counts entirely toward the day it started (also used for "Worked today"). Intentional for now.
     entries(all, period, around, filter) {
       const iv = Period.interval(period, around);
       return all.filter(e => Filter.includes(filter, e) && (!iv || (e.start >= iv.start && e.start < iv.end)));
@@ -1134,6 +1137,8 @@ a { color: var(--link); text-decoration: none; }
     // current job budget card
     $('tbudget').innerHTML = job ? timerBudgetCard(job, sh.isRunning ? worked : 0) : '';
     // today
+    // Note: a shift crossing midnight counts entirely toward the day it STARTED (same rule as
+    // Earnings / Reporting.entries). Intentional for now; splitting across days is not done.
     const todayLogs = S.logs.filter(l => startOfDay(l.start) === startOfDay(now));
     const liveSecs = sh.isRunning ? worked : 0;
     const secs = todayLogs.reduce((s, l) => s + l.workedSeconds, 0) + liveSecs;
@@ -1289,6 +1294,21 @@ a { color: var(--link); text-decoration: none; }
   }
   const brandName = () => (S.settings.businessName || '').trim() || 'TradeMate';
   const icsEscape = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  // RFC 5545 §3.1: fold lines longer than 75 octets (UTF-8) with CRLF + one space.
+  // Splits only between whole characters, so multi-byte characters are never cut in half.
+  function icsFold(line) {
+    const enc = new TextEncoder();
+    if (enc.encode(line).length <= 75) return line;
+    const out = [];
+    let cur = '', bytes = 0;
+    for (const ch of line) {
+      const b = enc.encode(ch).length;
+      if (bytes + b > 75) { out.push(cur); cur = ' '; bytes = 1; }   // continuation lines start with a space
+      cur += ch; bytes += b;
+    }
+    out.push(cur);
+    return out.join('\r\n');
+  }
   async function addToCalendar(id, field) {
     const j = jobById(id);
     if (!j || !j[field]) return;
@@ -1318,13 +1338,14 @@ a { color: var(--link); text-decoration: none; }
       ...alarms.flatMap(([trigger, text]) => ['BEGIN:VALARM', `TRIGGER:${trigger}`, 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(text)}`, 'END:VALARM']),
       'END:VEVENT', 'END:VCALENDAR'
     ].filter(Boolean);
-    const res = await shareOrDownload(`${verb.toLowerCase()}-${j.customerName.replace(/[^A-Za-z0-9]+/g, '-')}.ics`, 'text/calendar', lines.join('\r\n'), `${verb}: ${j.customerName}`);
+    const res = await shareOrDownload(`${verb.toLowerCase()}-${j.customerName.replace(/[^A-Za-z0-9]+/g, '-')}.ics`, 'text/calendar', lines.map(icsFold).join('\r\n'), `${verb}: ${j.customerName}`);
     if (res === 'failed') toast("Couldn't create the calendar event");
     else if (res === 'downloaded') toast('Open the downloaded file to add it to Calendar');
   }
 
   function startShift() {
     S.savedMsg = '';
+    if (S.timerSel && !jobById(S.timerSel)) S.timerSel = null;   // selected job was deleted: start as General, visibly
     S.shift = Shift.start(S.shift, S.timerSel, Date.now());
     // Starting work on a New job moves it to In Progress (Completed jobs are left alone)
     const job = jobById(S.shift.jobID);
@@ -1398,6 +1419,7 @@ a { color: var(--link); text-decoration: none; }
       { label: 'Delete ' + job.customerName, role: 'destructive', action: () => {
         S.jobs = S.jobs.filter(j => j.id !== job.id);
         S.logs.forEach(l => { if (l.jobId === job.id) l.jobId = null; });   // logs keep their saved name and stay billable
+        if (S.timerSel === job.id) S.timerSel = null;                        // don't leave the timer pointing at a deleted job
         saveAll(); refreshAll();
         deletePhotosForJob(job.id).then(refreshAll);
       } },
@@ -1474,7 +1496,6 @@ a { color: var(--link); text-decoration: none; }
         update();
       });
     });
-    body.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.onclick = () => { f[seg.dataset.seg] = b.dataset.v; update(); }));
 
     body.querySelector('#je-find').onclick = () => openAddressSearch(f.address, cand => {
       location = LocationEditing.selecting(cand);
@@ -1680,17 +1701,14 @@ a { color: var(--link); text-decoration: none; }
       if (badDeposit) { toast('Enter a valid deposit amount, or leave it blank.'); return; }
       if (badRate) { toast('Enter a valid hourly rate for this job.'); return; }
       if (rateVal === 0) {
-        actionSheet('Hourly rate is £0.00', "No labour value will be recorded for time logged to this job while its rate is £0.00. You can still save it this way if that's what you want.", [
-          { label: 'Save with £0.00 rate', action: writeJob },
+        actionSheet(`Hourly rate is ${fmt(0)}`, `No labour value will be recorded for time logged to this job while its rate is ${fmt(0)}. You can still save it this way if that's what you want.`, [
+          { label: `Save with ${fmt(0)} rate`, action: writeJob },
           { label: 'Go back and fix it', role: 'cancel' }
         ]);
         return;
       }
       writeJob();
     };
-  }
-  function switchHTML(key) {
-    return `<label class="sw"><input type="checkbox" data-f="${key}"><span></span></label>`;
   }
   function todayISO() { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
 
@@ -1956,6 +1974,17 @@ a { color: var(--link); text-decoration: none; }
     return n >= 1024 * 1024 ? (n / (1024 * 1024)).toFixed(n >= 100 * 1024 * 1024 ? 0 : 1) + ' MB' : Math.round(n / 1024) + ' KB';
   }
 
+  // Home Screen apps are exempt from Safari's 7-day deletion of website data.
+  function isStandalone() {
+    try { return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches; }
+    catch (e) { return false; }
+  }
+  // Ask the browser to keep this site's storage (not evict it). Harmless where unsupported.
+  async function requestPersistentStorage() {
+    try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }
+    catch (e) { /* not supported / refused: nothing else to do */ }
+  }
+
   function backupStatus() {
     const last = S.settings.lastBackupAt;
     if (!last) return { label: 'Never', warn: true, note: "You haven't exported a backup yet. Your jobs, time logs and photos exist only on this device — export one regularly so a lost, reset or wiped device can't lose them." };
@@ -1965,29 +1994,53 @@ a { color: var(--link); text-decoration: none; }
     return { label, warn: false, note: '' };
   }
 
-  async function exportBackup() {
-    let photos = [], photosOk = true;
-    try {
-      const all = await idbTx('readonly', st => st.getAll()) || [];
-      photos = await Promise.all(all.map(async r => ({
-        id: r.id, jobId: r.jobId, kind: r.kind, ts: r.ts, mime: (r.blob && r.blob.type) || 'image/jpeg',
-        data: await blobToBase64(r.blob)
-      })));
-    } catch (e) { photosOk = false; }
-    const payload = {
-      app: 'TradeMate', format: BACKUP_FORMAT, version: BACKUP_VERSION,
-      exportedAt: new Date().toISOString(),
-      data: { jobs: S.jobs, logs: S.logs, settings: S.settings, shift: S.shift },
-      photos
-    };
-    const name = `TradeMate-backup-${todayISO()}.json`;
-    const res = await shareOrDownload(name, 'application/json', JSON.stringify(payload), 'TradeMate backup');
+  const LARGE_BACKUP_BYTES = 100 * 1024 * 1024;   // above this, offer a data-only backup
+  // Entry point for the Export button: large photo libraries get a choice first.
+  function exportBackup() {
+    const bytes = totalPhotoBytes();
+    if (bytes <= LARGE_BACKUP_BYTES) { runExportBackup(true); return; }
+    actionSheet('Large backup',
+      `Your photos use ${formatBytes(bytes)}. A full backup with photos needs a lot of memory and may fail or close Safari on some iPhones. A data-only backup is small and always works; photos then stay only on this device.`,
+      [
+        { label: 'Full backup (with photos)', action: () => runExportBackup(true) },
+        { label: 'Data only (no photos)', action: () => runExportBackup(false) },
+        { label: 'Cancel', role: 'cancel' }
+      ]);
+  }
+  async function runExportBackup(includePhotos) {
+    // Built as a Blob from parts instead of one JSON.stringify of everything: each photo becomes its
+    // own small part, so there's no single giant string (and no second full copy while stringifying).
+    const parts = [
+      '{"app":"TradeMate","format":' + JSON.stringify(BACKUP_FORMAT) + ',"version":' + BACKUP_VERSION +
+      ',"exportedAt":' + JSON.stringify(new Date().toISOString()) + ',"photosIncluded":' + (includePhotos ? 'true' : 'false') +
+      ',"data":' + JSON.stringify({ jobs: S.jobs, logs: S.logs, settings: S.settings, shift: S.shift }) + ',"photos":['
+    ];
+    let photosOk = true;
+    if (includePhotos) {
+      try {
+        const all = await idbTx('readonly', st => st.getAll()) || [];
+        for (let i = 0; i < all.length; i++) {
+          const r = all[i];
+          const piece = (i ? ',' : '') + JSON.stringify({ id: r.id, jobId: r.jobId, kind: r.kind, ts: r.ts, mime: (r.blob && r.blob.type) || 'image/jpeg', data: await blobToBase64(r.blob) });
+          parts.push(new Blob([piece]));   // hand each photo to the browser as a Blob part straight away
+          all[i] = null;                   // let the source record be freed as we go
+        }
+      } catch (e) { photosOk = false; }
+    }
+    parts.push(']}');
+    const file = new Blob(parts, { type: 'application/json' });
+    const name = `TradeMate-backup${includePhotos ? '' : '-data-only'}-${todayISO()}.json`;
+    const res = await shareOrDownload(name, 'application/json', file, 'TradeMate backup');
     if (res === 'failed') { toast("Couldn't create the backup file."); return; }
+    if (res === 'cancelled') return;
     S.settings.lastBackupAt = Date.now();
     saveAll();
     renderAccount();
-    toast(!photosOk ? 'Backup saved, but photos could not be read and were left out.' : (res === 'shared' ? 'Backup shared.' : 'Backup downloaded.'));
+    toast(!includePhotos ? 'Data-only backup saved (no photos).'
+      : !photosOk ? 'Backup saved, but photos could not be read and were left out.'
+      : (res === 'shared' ? 'Backup shared.' : 'Backup downloaded.'));
   }
+
 
   function isValidBackup(payload) {
     return !!payload && typeof payload === 'object' && payload.format === BACKUP_FORMAT
@@ -2003,8 +2056,11 @@ a { color: var(--link); text-decoration: none; }
     const jobCount = payload.data.jobs.length, logCount = payload.data.logs.length, photoCount = (payload.photos || []).length;
     const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'an unknown date';
     actionSheet('Replace everything on this device?',
-      `This backup is from ${when} and has ${jobCount} job${jobCount === 1 ? '' : 's'}, ${logCount} time log${logCount === 1 ? '' : 's'} and ${photoCount} photo${photoCount === 1  ? '' : 's'}. ` +
-      `Restoring replaces all jobs, time logs, settings and photos currently on this device. This can't be undone.`,
+      payload.photosIncluded === false
+        ? `This data-only backup is from ${when} and has ${jobCount} job${jobCount === 1 ? '' : 's'} and ${logCount} time log${logCount === 1 ? '' : 's'} (no photos). ` +
+          `Restoring replaces all jobs, time logs and settings on this device. Photos already on this device are kept. This can't be undone.`
+        : `This backup is from ${when} and has ${jobCount} job${jobCount === 1 ? '' : 's'}, ${logCount} time log${logCount === 1 ? '' : 's'} and ${photoCount} photo${photoCount === 1  ? '' : 's'}. ` +
+          `Restoring replaces all jobs, time logs, settings and photos currently on this device. This can't be undone.`,
       [
         { label: 'Restore and replace everything', role: 'destructive', action: () => doRestoreBackup(payload) },
         { label: 'Cancel', role: 'cancel' }
@@ -2012,32 +2068,49 @@ a { color: var(--link); text-decoration: none; }
   }
 
   async function doRestoreBackup(payload) {
-    try {
-      await idbTx('readwrite', st => st.clear());
+    const withPhotos = payload.photosIncluded !== false;   // data-only backups leave this device's photos alone
+    // 1. Decode EVERY photo first. If any is damaged, stop here: nothing on the device has been touched yet.
+    const incoming = [];
+    if (withPhotos) {
+      for (const p of (payload.photos || [])) {
+        let blob = null;
+        try { if (typeof p.data === 'string' && p.data.startsWith('data:')) blob = await base64ToBlob(p.data); } catch (e) { blob = null; }
+        if (!blob) { toast("Couldn't restore: a photo in this backup is damaged. Nothing on this device was changed."); return; }
+        incoming.push({ id: p.id || uid(), jobId: p.jobId, kind: p.kind, ts: p.ts || Date.now(), blob });
+      }
+      // 2. Clear and write all photos in ONE transaction: if any write fails, IndexedDB rolls the whole
+      //    transaction back, including the clear, so the old photos survive.
+      try {
+        await idbTx('readwrite', st => { st.clear(); incoming.forEach(r => st.put(r)); });
+      } catch (e) {
+        toast("Couldn't restore the photos (storage may be full). Nothing on this device was changed.");
+        return;
+      }
+      // 3. Photos are safely stored: now swap the in-memory photo cache.
       PH.urls.forEach(u => URL.revokeObjectURL(u));
       PH.urls.clear(); PH.byJob.clear();
-      for (const p of (payload.photos || [])) {
-        const blob = await base64ToBlob(p.data).catch(() => null);
-        if (!blob) continue;   // skip a photo that can't be decoded rather than aborting the whole restore
-        const rec = { id: p.id || uid(), jobId: p.jobId, kind: p.kind, ts: p.ts || Date.now(), blob };
-        await idbTx('readwrite', st => st.put(rec));
-        if (!PH.byJob.has(rec.jobId)) PH.byJob.set(rec.jobId, []);
-        PH.byJob.get(rec.jobId).push(rec);
-      }
+      incoming.forEach(r => { if (!PH.byJob.has(r.jobId)) PH.byJob.set(r.jobId, []); PH.byJob.get(r.jobId).push(r); });
+    }
+    // 4. Only after the photo writes succeeded, replace jobs, logs, settings and the shift.
+    try {
       S.jobs = payload.data.jobs;
       S.logs = payload.data.logs;
       S.settings = Object.assign({ businessName: '', ratePence: 3500, currency: 'GBP', appearance: 'system' }, payload.data.settings || {});
+      S.settings.privacyNoticeSeen = true;   // don't re-show the first-launch notice after a restore
       S.shift = Object.assign(Shift.create(), payload.data.shift || {});
+      S.timerSel = null;
       const ok = saveAll();
       applyTheme();
       showTab('account');
       refreshAll();
       renderAccount();
-      toast(ok ? 'Backup restored.' : "Restored, but saving to this device failed — export a fresh backup once storage is freed up.");
+      toast(ok ? (withPhotos ? 'Backup restored.' : 'Backup restored. Photos on this device were kept (the backup had none).')
+               : "Restored, but saving to this device failed — export a fresh backup once storage is freed up.");
     } catch (e) {
       toast("Couldn't restore that backup: " + (e && e.message ? e.message : 'unknown error'));
     }
   }
+
 
   // =========================================================================================
   // ACCOUNT TAB (AccountView.swift)
@@ -2053,6 +2126,10 @@ a { color: var(--link); text-decoration: none; }
         <div class="row tap chev" id="ac-logs"><span>🗒️ Time logs</span><span></span></div>
         <div class="row tap chev" id="ac-fore"><span>📈 Income forecast</span><span></span></div>
         <div class="row btnrow tap" id="ac-add">⊕ Add time manually</div></div>
+      ${!isStandalone() ? `<div class="notice" style="margin-top:16px">📲 Add TradeMate to your Home Screen<div style="font-weight:400;margin-top:6px">
+        Safari can delete this site's data if you don't open it for 7 days. Apps on the Home Screen are kept.
+        <b>First tap Export backup below</b>, then in Safari tap Share → Add to Home Screen, open TradeMate from the Home Screen,
+        and use Restore from backup there. The Home Screen app has its own separate storage, so it starts empty until you restore.</div></div>` : ''}
       <div class="sh">Backup</div><div class="group">
         <div class="row"><span>Last backup</span><span class="v" style="${bstat.warn ? 'color:var(--orange-t);font-weight:600' : ''}">${esc(bstat.label)}</span></div>
         <div class="row"><span>Photo storage used</span><span class="v" style="${overLimit ? 'color:var(--orange-t);font-weight:600' : ''}">${esc(formatBytes(photoBytes))}</span></div>
@@ -2888,6 +2965,7 @@ a { color: var(--link); text-decoration: none; }
   }
   document.querySelectorAll('#tabbar button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
+  requestPersistentStorage();
   applyTheme();
   renderTimer();
   renderJobs();
