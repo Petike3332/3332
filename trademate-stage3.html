@@ -378,6 +378,10 @@ a { color: var(--link); text-decoration: none; }
 .dadd .ico.plus { width: 18px; height: 18px; stroke-width: 2; opacity: .8; }
 .dadd:active { background: var(--accent-tint-2); }
 
+/* Client suggestions in Edit job */
+.clientsugg { width: 100%; border: 0; border-top: 1px solid var(--sep); background: var(--accent-tint); color: var(--text); font: inherit; display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; }
+.clientsugg .hint:last-child { color: var(--accent); font-weight: 600; }
+
 </style>
 </head>
 <body>
@@ -814,6 +818,60 @@ a { color: var(--link); text-decoration: none; }
     }
   };
 
+  // ---------------- Income (what a job actually earns) ----------------
+  // Fixed-price jobs earn their quoted price, however long they take. Hourly jobs earn time x rate.
+  // Income is counted when a job is Completed, the same rule the Income forecast uses.
+  const Income = {
+    /** 'fixed' | 'hourly'. Older jobs without a setting: fixed if they have a quote, otherwise hourly. */
+    pricing(job) {
+      if (job.pricing === 'fixed' || job.pricing === 'hourly') return job.pricing;
+      return job.quotePence !== null && job.quotePence !== undefined ? 'fixed' : 'hourly';
+    },
+    /** { pence, from }: from = 'quote' | 'labour' | 'estimate' | 'none'. Whole pence. */
+    value(job, laborPence) {
+      const done = job.status === 'Completed';
+      const hasQuote = job.quotePence !== null && job.quotePence !== undefined;
+      if (Income.pricing(job) === 'fixed') {
+        if (hasQuote) return { pence: job.quotePence, from: 'quote' };
+        if (done && laborPence > 0) return { pence: laborPence, from: 'labour' };   // fixed but no price entered
+        return { pence: null, from: 'none' };
+      }
+      if (done) return laborPence > 0 ? { pence: laborPence, from: 'labour' } : { pence: null, from: 'none' };
+      if (hasQuote) return { pence: job.quotePence, from: 'estimate' };             // hourly job's estimate
+      return { pence: null, from: 'none' };
+    },
+    /** When a completed job counts as earned (ms): handover date, else marked Completed, else last work. */
+    completedOn(job, lastLogMs) {
+      const iso = d => { const [y, m, dd] = d.split('-').map(Number); return new Date(y, m - 1, dd).getTime(); };
+      if (job.deliveryDate) return iso(job.deliveryDate);
+      if (job.completedAt) return job.completedAt;
+      if (lastLogMs) return lastLogMs;
+      if (job.collectionDate) return iso(job.collectionDate);
+      return job.createdAt || null;
+    },
+    /** Completed jobs earned in [start, end) (all time when iv is null), matching the filter. info: jobId -> { laborPence, workedSeconds, lastLogMs } */
+    period(jobs, info, iv, filter) {
+      const rows = [];
+      for (const job of jobs) {
+        if (job.status !== 'Completed') continue;
+        if (filter && filter.type === 'general') continue;
+        if (filter && filter.type === 'job' && filter.id !== job.id) continue;
+        const i = info[job.id] || { laborPence: 0, workedSeconds: 0, lastLogMs: null };
+        const on = Income.completedOn(job, i.lastLogMs);
+        if (iv && (on === null || on < iv.start || on >= iv.end)) continue;
+        const v = Income.value(job, i.laborPence);
+        rows.push({ job, pence: v.pence, from: v.from, workedSeconds: i.workedSeconds, completedOn: on,
+                    effectiveRatePence: v.pence !== null && i.workedSeconds > 0 ? roundedDivision(v.pence * 3600, i.workedSeconds) : null });
+      }
+      rows.sort((a, b) => b.completedOn - a.completedOn);
+      const priced = rows.filter(r => r.pence !== null);
+      const totalPence = priced.reduce((s, r) => s + r.pence, 0);
+      const pricedSeconds = priced.reduce((s, r) => s + r.workedSeconds, 0);
+      return { rows, totalPence, unpriced: rows.length - priced.length,
+               effectiveRatePence: pricedSeconds > 0 ? roundedDivision(totalPence * 3600, pricedSeconds) : null };
+    }
+  };
+
   // ---------------- Income forecast ----------------
   // Which month a job's income belongs to, and how much. Whole pence throughout.
   const Forecast = {
@@ -835,12 +893,9 @@ a { color: var(--link); text-decoration: none; }
       if (job.meetingDate) return { key: Forecast.monthKey(job.meetingDate), basis: 'meeting date' };
       return { key: null, basis: 'no date yet' };
     },
-    /** Quoted price; a completed job without a quote uses its recorded labour; otherwise null (unpriced). */
-    value(job, laborPence) {
-      if (job.quotePence !== null && job.quotePence !== undefined) return { pence: job.quotePence, from: 'quote' };
-      if (job.status === 'Completed' && laborPence > 0) return { pence: laborPence, from: 'labour' };
-      return { pence: null, from: 'none' };
-    },
+    /** What a job brings in (see Income.value): fixed price -> the quote; hourly -> time x rate once
+        completed, or its estimate while booked. Otherwise null (unpriced). */
+    value(job, laborPence) { return Income.value(job, laborPence); },
     /** info: jobId -> { laborPence, lastLogMs } */
     month(jobs, info, key) {
       const out = { key, done: [], booked: [], doneTotal: 0, bookedTotal: 0, total: 0, unpriced: 0 };
@@ -869,7 +924,7 @@ a { color: var(--link); text-decoration: none; }
     }
   };
 
-  root.TM = { Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, sameBilling, JobRates,
+  root.TM = { Income, Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, sameBilling, JobRates,
               Precision, Ranking, AddressText, Place, Candidates, JobLocation, LocationEditing, startOfDay, entryEarnings };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -878,7 +933,7 @@ a { color: var(--link); text-decoration: none; }
 /* TradeMate Stage 3 — web test build: screens. Mirrors the native SwiftUI views. */
 (function () {
   'use strict';
-  const { Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, JobRates, Precision, Ranking,
+  const { Income, Forecast, Money, Duration, Shift, GENERAL, Filter, Period, Reporting, Draft, JobRates, Precision, Ranking,
           AddressText, Place, Candidates, JobLocation, LocationEditing, startOfDay } = window.TM;
 
   const $ = id => document.getElementById(id);
@@ -887,7 +942,7 @@ a { color: var(--link); text-decoration: none; }
   const pad2 = n => String(n).padStart(2, '0');
 
   // ---------- Storage (separate keys, so the older web app's data is never touched) ----------
-  const K = { jobs: 'tm3.jobs', logs: 'tm3.logs', settings: 'tm3.settings', shift: 'tm3.shift' };
+  const K = { jobs: 'tm3.jobs', logs: 'tm3.logs', settings: 'tm3.settings', shift: 'tm3.shift', clients: 'tm3.clients' };
   const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } };
   // Returns true/false so callers can tell whether the save actually happened
   // (storage full, private browsing blocking storage, etc. throw here).
@@ -897,6 +952,7 @@ a { color: var(--link); text-decoration: none; }
     logs: load(K.logs, []),
     settings: Object.assign({ businessName: '', ratePence: 3500, currency: 'GBP', appearance: 'system' }, load(K.settings, {})),
     shift: Object.assign(Shift.create(), load(K.shift, {})),
+    clients: load(K.clients, []),
     timerSel: null, jobSearch: '', savedMsg: ''
   };
   // Shown at most once every 8s, so a stream of saves while storage is broken doesn't spam toasts.
@@ -908,13 +964,14 @@ a { color: var(--link); text-decoration: none; }
     toast("Couldn't save — your changes may be lost. Storage may be full or blocked (e.g. Private Browsing).");
   }
   const saveAll = () => {
-    const ok = [store(K.jobs, S.jobs), store(K.logs, S.logs), store(K.settings, S.settings), store(K.shift, S.shift)];
+    const ok = [store(K.jobs, S.jobs), store(K.logs, S.logs), store(K.settings, S.settings), store(K.shift, S.shift), store(K.clients, S.clients)];
     if (ok.includes(false)) reportSaveFailure();
     return !ok.includes(false);
   };
 
   const cur = () => S.settings.currency;
   const fmt = p => Money.format(p, cur());
+  const clientById = id => S.clients.find(c => c.id === id) || null;
   const jobById = id => (id ? S.jobs.find(j => j.id === id) : null) || null;
   const displayName = l => { const j = jobById(l.jobId); return j ? j.customerName : l.customerNameSnapshot; };
   const entryOf = l => ({ id: l.id, jobID: jobById(l.jobId) ? l.jobId : null, jobName: displayName(l), start: l.start,
@@ -1079,7 +1136,7 @@ a { color: var(--link); text-decoration: none; }
           <div class="inner"><div class="cap">This shift</div><div class="t" id="tclock">00:00:00</div><div class="hint" id="tcap"></div></div>
         </div>
         <div class="metrics">
-          <div><div class="l">Est. earnings</div><div class="m" id="test"></div></div>
+          <div><div class="l" id="test-l">Est. earnings</div><div class="m" id="test"></div></div>
           <div><div class="l">Breaks</div><div class="m" id="tbreaks"></div></div>
         </div>
         <button class="btn" id="tmain"></button>
@@ -1131,6 +1188,9 @@ a { color: var(--link); text-decoration: none; }
     $('tcap').textContent = caption;
     // metrics
     $('test').textContent = activeJobID() ? fmt(Money.earningsPence(Math.floor(worked), activeRate())) : 'N/A';
+    // Fixed-price jobs earn their quote, so the live figure is the time's value, not earnings.
+    const tj = jobById(activeJobID());
+    $('test-l').textContent = tj && Income.pricing(tj) === 'fixed' ? 'Time value' : 'Est. earnings';
     $('tbreaks').textContent = Duration.short(Shift.breakTime(sh, now));
     const main = $('tmain');
     main.className = 'btn ' + (sh.isRunning ? 'red' : 'green');
@@ -1153,7 +1213,7 @@ a { color: var(--link); text-decoration: none; }
     if (comingDay !== startOfDay(now)) renderComingUp();   // "today / tomorrow" labels roll over at midnight
     $('ttoday').innerHTML = `<div class="cap">Today</div><div class="two" style="margin-top:10px">
       <div><div class="hint">Hours worked</div><div class="big">${Duration.hours(secs)}</div></div>
-      <div style="text-align:right"><div class="hint">Earnings</div><div class="big" style="color:var(--green-t)">${fmt(pence)}</div></div></div>`;
+      <div style="text-align:right"><div class="hint">Time value</div><div class="big" style="color:var(--green-t)">${fmt(pence)}</div></div></div>`;
   }
 
   function timerBudgetCard(job, liveSeconds) {
@@ -1214,25 +1274,71 @@ a { color: var(--link); text-decoration: none; }
   const timeField = f => f.replace('Date', 'Time');   // meetingDate -> meetingTime, collectionDate -> collectionTime …
   const doneField = f => f.replace('Date', 'Done');
   const isDone = (j, f) => !!j[doneField(f)];
-  function setDone(jobId, f, done) {
+  const hhmm = ms => { const d = new Date(ms); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+  const dayTime = ms => `${prettyDay(isoOf(ms))}, ${hhmm(ms)}`;
+  const isoOf = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+  const bookedMs = (iso, time) => { if (!iso) return null; const [y, m, d] = iso.split('-').map(Number); const [hh, mm] = (time || '00:00').split(':').map(Number); return new Date(y, m - 1, d, hh, mm).getTime(); };
+  // Asks when it actually happened: now, at the booked time, or a time you pick. Calls done(ms).
+  function chooseDoneTime(k, bookedISO, bookedTime, done) {
+    const now = Date.now();
+    const opts = [{ label: `Now (${hhmm(now)})`, action: () => done(now) }];
+    if (bookedISO && bookedTime) opts.push({ label: `At booked time (${prettyDay(bookedISO)}, ${bookedTime})`, action: () => done(bookedMs(bookedISO, bookedTime)) });
+    opts.push({ label: 'Pick a time…', action: () => pickDoneTime(k, now, done) });
+    opts.push({ label: 'Cancel', role: 'cancel' });
+    actionSheet(`${k.done} when?`, "The time it actually happened is saved, next to the booked time.", opts);
+  }
+  function pickDoneTime(k, defaultMs, done) {
+    const ov = pushOverlay('sheet');
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-cancel>Cancel</button><div class="title">${esc(k.done)} at</div>
+      <button class="linkbtn bold r" data-save>Save</button></div><div class="body">
+      <div class="group" style="margin-top:16px"><div class="row"><span>Date</span><input type="date" id="pd-d" style="width:auto"></div>
+      <div class="row"><span>Time</span><input type="time" id="pd-t" style="width:auto"></div></div></div>`;
+    ov.querySelector('#pd-d').value = isoOf(defaultMs); ov.querySelector('#pd-t').value = hhmm(defaultMs);
+    ov.querySelector('[data-cancel]').onclick = () => closeOverlay(ov);
+    ov.querySelector('[data-save]').onclick = () => {
+      const d = ov.querySelector('#pd-d').value, t = ov.querySelector('#pd-t').value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !/^\d{2}:\d{2}$/.test(t)) { toast('Choose a date and time.'); return; }
+      closeOverlay(ov); done(bookedMs(d, t));
+    };
+  }
+  function setDone(jobId, f, done, atMs) {
     const j = jobById(jobId); if (!j) return;
     j[doneField(f)] = done;
-    j[doneField(f) + 'At'] = done ? Date.now() : null;
+    j[doneField(f) + 'At'] = done ? (atMs || Date.now()) : null;
     saveAll(); refreshAll();
     const k = kindOf(j, f);
     toast(done ? `${k.done}: ${j.customerName}` : `${k.done} mark removed`);
   }
+  // Card / Coming up: ask when, then mark done
+  function markDone(jobId, f) {
+    const j = jobById(jobId); if (!j) return;
+    chooseDoneTime(kindOf(j, f), j[f], timeOf(j, f), ms => setDone(jobId, f, true, ms));
+  }
+  // "Mon 21 Sep, 11:00 · booked 10:30" — the booked part only when it differs by more than 15 minutes
+  function doneParts(j, f) {
+    const at = j[doneField(f) + 'At'];
+    if (!at) return { actual: shortWhen(j, f), booked: null };
+    const sameDay = isoOf(at) === j[f];
+    const differs = timeOf(j, f) ? Math.abs(at - bookedMs(j[f], timeOf(j, f))) > 15 * 60000 : !sameDay;
+    return { actual: dayTime(at), booked: differs ? (sameDay && timeOf(j, f) ? timeOf(j, f) : shortWhen(j, f)) : null };
+  }
   const timeOf = (j, f) => j[timeField(f)] || '';
   const shortWhen = (j, f) => prettyDay(j[f]) + (timeOf(j, f) ? ', ' + timeOf(j, f) : '');
-  const longWhen = (j, f) => longDay(j[f]) + (timeOf(j, f) ? ' at ' + timeOf(j, f) : '') +
-    (isDone(j, f) ? ` (${kindOf(j, f).done.toLowerCase()})` : '');
+  const longWhen = (j, f) => {
+    const booked = longDay(j[f]) + (timeOf(j, f) ? ' at ' + timeOf(j, f) : '');
+    if (!isDone(j, f)) return booked;
+    const at = j[doneField(f) + 'At'];
+    const word = kindOf(j, f).done.toLowerCase();
+    return at ? `${booked} (${word} ${isoOf(at) === j[f] ? 'at ' + hhmm(at) : longDay(isoOf(at)) + ' at ' + hhmm(at)})` : `${booked} (${word})`;
+  };
   const whenLabel = diff => diff < 0 ? `${-diff} day${diff === -1 ? '' : 's'} overdue` : diff === 0 ? 'today' : diff === 1 ? 'tomorrow' : `in ${diff} days`;
   const dateColor = diff => diff < 0 ? 'var(--red)' : diff <= 1 ? 'var(--orange-t)' : 'var(--sub)';
 
   function dateRows(j) {
     return dateFields(j).filter(([f]) => j[f]).map(([f, k]) => {
       if (isDone(j, f)) {
-        return `<div class="daterow" style="color:var(--green-t)">✅ ${k.done}: <b>${esc(shortWhen(j, f))}</b>
+        const dp = doneParts(j, f);
+        return `<div class="daterow" style="color:var(--green-t)">✅ ${k.done}: <b>${esc(dp.actual)}</b>${dp.booked ? ` <span style="color:var(--sub)">(booked ${esc(dp.booked)})</span>` : ''}
           <button type="button" class="minilink" data-undone="${esc(j.id)}" data-f="${f}">Undo</button></div>`;
       }
       const open = j.status !== 'Completed', diff = dayDiff(j[f]);
@@ -1259,7 +1365,7 @@ a { color: var(--link); text-decoration: none; }
     box.querySelectorAll('[data-ev]').forEach(r => r.onclick = () => {
       const e = ev[+r.dataset.ev];
       actionSheet(`${e.k.short} · ${e.j.customerName}`, `${shortWhen(e.j, e.f)} · ${whenLabel(e.diff)}`, [
-        { label: '✓ ' + e.k.mark, action: () => setDone(e.j.id, e.f, true) },
+        { label: '✓ ' + e.k.mark, action: () => setTimeout(() => markDone(e.j.id, e.f), 250) },
         { label: 'Open job', action: () => jumpToJob(e.j.id) },
         { label: 'Cancel', role: 'cancel' }]);
     });
@@ -1415,7 +1521,7 @@ a { color: var(--link); text-decoration: none; }
     box.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => openJobSheet(b.dataset.sheet));
     bindPhotoViews(box);
     box.querySelectorAll('[data-cal]').forEach(b => b.onclick = () => addToCalendar(b.dataset.cal, b.dataset.f));
-    box.querySelectorAll('[data-done]').forEach(b => b.onclick = () => setDone(b.dataset.done, b.dataset.f, true));
+    box.querySelectorAll('[data-done]').forEach(b => b.onclick = () => markDone(b.dataset.done, b.dataset.f));
     box.querySelectorAll('[data-undone]').forEach(b => b.onclick = () => setDone(b.dataset.undone, b.dataset.f, false));
   }
   function requestDeleteJob(job) {
@@ -1434,23 +1540,30 @@ a { color: var(--link); text-decoration: none; }
   // =========================================================================================
   // JOB EDITOR (JobEditorView.swift)
   // =========================================================================================
-  function openJobEditor(jobId) {
+  function openJobEditor(jobId, preset) {
     const job = jobById(jobId);
     const ov = pushOverlay('sheet');
     const f = job ? {
       customerName: job.customerName, phone: job.phone || '', jobDescription: job.jobDescription, status: job.status,
       quote: job.quotePence === null || job.quotePence === undefined ? '' : Money.plain(job.quotePence),
+      pricing: Income.pricing(job),
       deposit: job.depositPence ? Money.plain(job.depositPence) : '', depositDate: job.depositDate || todayISO(),
       rate: Money.plain(job.ratePence === null || job.ratePence === undefined ? S.settings.ratePence : job.ratePence),
       hasCollect: !!job.collectionDate, collect: job.collectionDate || todayISO(), hasDeliver: !!job.deliveryDate, deliver: job.deliveryDate || todayISO(),
       collectType: job.collectionType === 'dropoff' ? 'dropoff' : 'collect', deliverType: job.deliveryType === 'pickup' ? 'pickup' : 'deliver',
       collectTime: job.collectionTime || '', deliverTime: job.deliveryTime || '',
       collectDone: !!job.collectionDone, deliverDone: !!job.deliveryDone,
+      collectDoneAt: job.collectionDoneAt || null, deliverDoneAt: job.deliveryDoneAt || null, meetingDoneAt: job.meetingDoneAt || null,
       hasMeeting: !!job.meetingDate, meeting: job.meetingDate || todayISO(), meetingTime: job.meetingTime || '', meetingNote: job.meetingNote || '', meetingDone: !!job.meetingDone, meetingPlace: job.meetingPlace === 'workshop' ? 'workshop' : 'customer',
-      address: job.address || '', notes: job.notes || ''
-    } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', deposit: '', depositDate: todayISO(), rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
-          hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', collectTime: '', deliverTime: '', collectDone: false, deliverDone: false, hasMeeting: false, meeting: todayISO(), meetingTime: '', meetingNote: '', meetingDone: false, meetingPlace: 'customer', address: '', notes: '' };
+      address: job.address || '', notes: job.notes || '', clientId: job.clientId && clientById(job.clientId) ? job.clientId : null, saveClient: false
+    } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', pricing: 'fixed', deposit: '', depositDate: todayISO(), rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
+          hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', collectTime: '', deliverTime: '', collectDone: false, deliverDone: false, collectDoneAt: null, deliverDoneAt: null, meetingDoneAt: null, hasMeeting: false, meeting: todayISO(), meetingTime: '', meetingNote: '', meetingDone: false, meetingPlace: 'customer', address: '', notes: '', clientId: null, saveClient: false };
     let location = job ? LocationEditing.load(job) : null;
+    if (!job && preset && preset.clientId && clientById(preset.clientId)) {   // "New job" from a client's page
+      const c = clientById(preset.clientId);
+      Object.assign(f, { clientId: c.id, customerName: c.name, phone: c.phone || '', address: c.address || '' });
+      location = LocationEditing.load(c);
+    }
     let mini = null;
     const editId = job ? job.id : uid();   // new jobs get their id now, so photos can be added before saving
     let saved = false;
@@ -1460,12 +1573,17 @@ a { color: var(--link); text-decoration: none; }
     const body = ov.querySelector('#je');
     body.innerHTML = `
       <div class="sh">Customer</div><div class="group">
-        <div class="row"><input type="text" data-f="customerName" placeholder="Customer name" autocomplete="name"></div>
-        <div class="row"><input type="tel" data-f="phone" placeholder="Phone" autocomplete="tel"></div></div>
+        <div class="row"><input type="text" data-f="customerName" placeholder="Customer name" autocomplete="off"></div>
+        <div id="je-clients"></div>
+        <div class="row"><input type="tel" data-f="phone" placeholder="Phone" autocomplete="tel"></div>
+        <div class="row" id="je-client-linked"><span>👤 Saved client</span><button type="button" class="minilink" id="je-unlink">Unlink</button></div>
+        <div class="row" id="je-saveclient-row"><span>Save as a client</span><label class="sw"><input type="checkbox" data-f="saveClient"><span></span></label></div></div>
+      <div class="sf" id="je-client-sf">Start typing a saved client's name to fill in their details.</div>
       <div class="sh">Job</div><div class="group">
         <div class="row"><textarea data-f="jobDescription" placeholder="Job / item description" rows="2" style="min-height:44px"></textarea></div>
         <div class="row"><span>Status</span><select data-f="status" style="width:auto"><option>New</option><option>In Progress</option><option>Completed</option></select></div>
-        <div class="row"><span>Quoted price</span><input class="inp right" inputmode="decimal" data-f="quote" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div></div>
+        <div class="row"><span>Pricing</span><div class="seg segmini" style="max-width:62%" role="radiogroup"><button type="button" data-pv="fixed">Fixed price</button><button type="button" data-pv="hourly">Hourly</button></div></div>
+        <div class="row"><span id="je-quote-lbl">Quoted price</span><input class="inp right" inputmode="decimal" data-f="quote" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div></div>
       <div class="sh">Deposit</div><div class="group">
         <div class="row"><span>Deposit paid</span><input class="inp right" inputmode="decimal" data-f="deposit" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div>
         <div class="row" id="je-dep-date-row"><span>Paid on</span><input type="date" data-f="depositDate" style="width:auto"></div>
@@ -1498,10 +1616,31 @@ a { color: var(--link); text-decoration: none; }
       inp.addEventListener(inp.type === 'checkbox' || inp.tagName === 'SELECT' ? 'change' : 'input', () => {
         f[k] = inp.type === 'checkbox' ? inp.checked : inp.value;
         if (k === 'address') location = LocationEditing.afterTextEdit(location, inp.value);
+        if (k === 'customerName' && f.clientId && clientById(f.clientId) && inp.value.trim() !== clientById(f.clientId).name) f.clientId = null;
         update();
       });
     });
 
+    body.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { f.pricing = b.dataset.pv; update(); });
+    body.querySelector('#je-unlink').onclick = () => { f.clientId = null; update(); };
+    function pickClient(c) {
+      f.clientId = c.id; f.customerName = c.name; f.phone = c.phone || ''; f.address = c.address || ''; f.saveClient = false;
+      location = LocationEditing.load(c);
+      ['customerName', 'phone', 'address'].forEach(k => { body.querySelector(`[data-f=${k}]`).value = f[k]; });
+      update();
+    }
+    function renderClientBits() {
+      const box = body.querySelector('#je-clients');
+      const q = f.customerName.trim().toLowerCase();
+      const matches = !f.clientId && q ? S.clients.filter(c => c.name.toLowerCase().includes(q) || (c.phone || '').replace(/\s/g, '').includes(q.replace(/\s/g, ''))).slice(0, 4) : [];
+      box.innerHTML = matches.map(c => `<button type="button" class="row tap clientsugg" data-pick="${esc(c.id)}"><div style="min-width:0;text-align:left"><div>👤 ${esc(c.name)}</div>
+        <div class="hint">${esc([c.phone, c.address].filter(Boolean).join(' · ') || 'No phone or address saved')}</div></div><span class="hint">Use</span></button>`).join('');
+      box.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => pickClient(clientById(b.dataset.pick)));
+      const exists = S.clients.some(c => c.name.trim().toLowerCase() === q);
+      body.querySelector('#je-client-linked').style.display = f.clientId ? '' : 'none';
+      body.querySelector('#je-saveclient-row').style.display = !f.clientId && q && !exists ? '' : 'none';
+      body.querySelector('#je-client-sf').style.display = S.clients.length && !f.clientId ? '' : 'none';
+    }
     body.querySelector('#je-find').onclick = () => openAddressSearch(f.address, cand => {
       location = LocationEditing.selecting(cand);
       f.address = cand.formattedAddress;
@@ -1521,11 +1660,11 @@ a { color: var(--link); text-decoration: none; }
     };
     const svg = (name, cls) => `<svg class="ico ${cls || ''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[name]}</svg>`;
     const DATE_CARDS = [
-      { has: 'hasMeeting', date: 'meeting', time: 'meetingTime', done: 'meetingDone', seg: 'meetingPlace', add: 'Meeting', icon: 'meeting', note: true,
+      { has: 'hasMeeting', date: 'meeting', time: 'meetingTime', done: 'meetingDone', doneAt: 'meetingDoneAt', seg: 'meetingPlace', add: 'Meeting', icon: 'meeting', note: true,
         opts: [['customer', 'On site'], ['workshop', 'Workshop']], kind: () => DATE_KINDS[f.meetingPlace === 'workshop' ? 'meetWorkshop' : 'meetCustomer'] },
-      { has: 'hasCollect', date: 'collect', time: 'collectTime', done: 'collectDone', seg: 'collectType', add: 'Collection / drop-off', icon: 'collect',
+      { has: 'hasCollect', date: 'collect', time: 'collectTime', done: 'collectDone', doneAt: 'collectDoneAt', seg: 'collectType', add: 'Collection / drop-off', icon: 'collect',
         opts: [['collect', 'Collect'], ['dropoff', 'Drop-off']], kind: () => DATE_KINDS[f.collectType] },
-      { has: 'hasDeliver', date: 'deliver', time: 'deliverTime', done: 'deliverDone', seg: 'deliverType', add: 'Delivery / pick-up', icon: 'deliver',
+      { has: 'hasDeliver', date: 'deliver', time: 'deliverTime', done: 'deliverDone', doneAt: 'deliverDoneAt', seg: 'deliverType', add: 'Delivery / pick-up', icon: 'deliver',
         opts: [['deliver', 'Deliver'], ['pickup', 'Pick-up']], kind: () => DATE_KINDS[f.deliverType] }
     ];
     function renderDates() {
@@ -1563,7 +1702,11 @@ a { color: var(--link); text-decoration: none; }
         inp.addEventListener('change', () => { f[inp.dataset.df] = inp.value; });
       });
       box.querySelectorAll('[data-dseg]').forEach(b => b.onclick = () => { f[b.dataset.dseg] = b.dataset.v; renderDates(); });
-      box.querySelectorAll('[data-ddone]').forEach(b => b.onclick = () => { f[b.dataset.ddone] = !f[b.dataset.ddone]; renderDates(); });
+      box.querySelectorAll('[data-ddone]').forEach(b => b.onclick = () => {
+        const c = DATE_CARDS.find(x => x.done === b.dataset.ddone);
+        if (f[c.done]) { f[c.done] = false; f[c.doneAt] = null; renderDates(); return; }   // un-mark straight away
+        chooseDoneTime(c.kind(), f[c.date], f[c.time], ms => { f[c.done] = true; f[c.doneAt] = ms; renderDates(); });
+      });
       box.querySelectorAll('[data-dremove]').forEach(b => b.onclick = () => { f[b.dataset.dremove] = false; renderDates(); });
       box.querySelectorAll('[data-dadd]').forEach(b => b.onclick = () => {
         const c = DATE_CARDS.find(x => x.has === b.dataset.dadd);
@@ -1587,7 +1730,10 @@ a { color: var(--link); text-decoration: none; }
       if (hasDep && qp !== null) body.querySelector('#je-balance').textContent = fmt(Math.max(0, qp - dp));
       body.querySelector('#je-dep-warn').style.display = hasDep && qp !== null && dp > qp ? '' : 'none';
       const cover = qp !== null && qp >= 0 && rp !== null ? Money.allowanceSeconds(qp, rp) : null;
-      body.querySelector('#je-cover').style.display = cover !== null ? '' : 'none';
+      body.querySelectorAll('[data-pv]').forEach(b => b.classList.toggle('on', f.pricing === b.dataset.pv));
+      renderClientBits();
+      body.querySelector('#je-quote-lbl').textContent = f.pricing === 'hourly' ? 'Estimate (optional)' : 'Quoted price';
+      body.querySelector('#je-cover').style.display = cover !== null && f.pricing === 'fixed' ? '' : 'none';
       if (cover !== null) body.querySelector('#je-covers').textContent = Duration.decimalHours(cover) + ' hrs';
       renderDates();
       body.querySelector('#je-find').innerHTML = `🔍 ${location ? 'Search again' : 'Find address'}`;
@@ -1669,10 +1815,10 @@ a { color: var(--link); text-decoration: none; }
       target.deliveryDate = f.hasDeliver ? f.deliver : null;
       target.collectionType = f.collectType;
       target.deliveryType = f.deliverType;
-      const doneNow = (was, now, atWas) => now ? (was ? atWas : Date.now()) : null;
-      target.collectionDoneAt = f.hasCollect ? doneNow(target.collectionDone, f.collectDone, target.collectionDoneAt) : null;
-      target.deliveryDoneAt = f.hasDeliver ? doneNow(target.deliveryDone, f.deliverDone, target.deliveryDoneAt) : null;
-      target.meetingDoneAt = f.hasMeeting ? doneNow(target.meetingDone, f.meetingDone, target.meetingDoneAt) : null;
+      // the time it actually happened (chosen when Done was tapped); falls back to now for older marks
+      target.collectionDoneAt = f.hasCollect && f.collectDone ? (f.collectDoneAt || Date.now()) : null;
+      target.deliveryDoneAt = f.hasDeliver && f.deliverDone ? (f.deliverDoneAt || Date.now()) : null;
+      target.meetingDoneAt = f.hasMeeting && f.meetingDone ? (f.meetingDoneAt || Date.now()) : null;
       target.meetingDate = f.hasMeeting ? f.meeting : null;
       target.meetingPlace = f.meetingPlace === 'workshop' ? 'workshop' : 'customer';
       target.meetingTime = f.hasMeeting && /^\d{2}:\d{2}$/.test(f.meetingTime) ? f.meetingTime : null;
@@ -1690,6 +1836,14 @@ a { color: var(--link); text-decoration: none; }
       if (f.deposit.trim() !== '' && dep !== null && dep > 0) { target.depositPence = dep; target.depositDate = f.depositDate || todayISO(); }
       else { target.depositPence = null; target.depositDate = null; }
       target.ratePence = Math.max(0, Money.parsePence(f.rate));
+      target.pricing = f.pricing === 'hourly' ? 'hourly' : 'fixed';
+      if (!f.clientId && f.saveClient && target.customerName) {
+        const c = { id: uid(), name: target.customerName, phone: target.phone || '', address: target.address || '', notes: '', createdAt: Date.now(),
+                    latitude: target.latitude, longitude: target.longitude, locationPrecision: target.locationPrecision, locationPinMoved: !!target.locationPinMoved };
+        S.clients.push(c);
+        f.clientId = c.id;
+      }
+      target.clientId = f.clientId || null;   // the job keeps its own copy of the details; the link is for the client's history
       if (isNew) S.jobs.push(target);
       saved = true;
       saveAll(); closeOverlay(ov);
@@ -2033,7 +2187,7 @@ a { color: var(--link); text-decoration: none; }
     const parts = [
       '{"app":"TradeMate","format":' + JSON.stringify(BACKUP_FORMAT) + ',"version":' + BACKUP_VERSION +
       ',"exportedAt":' + JSON.stringify(new Date().toISOString()) + ',"photosIncluded":' + (includePhotos ? 'true' : 'false') +
-      ',"data":' + JSON.stringify({ jobs: S.jobs, logs: S.logs, settings: S.settings, shift: S.shift }) + ',"photos":['
+      ',"data":' + JSON.stringify({ jobs: S.jobs, logs: S.logs, settings: S.settings, shift: S.shift, clients: S.clients }) + ',"photos":['
     ];
     let photosOk = true;
     if (includePhotos) {
@@ -2079,7 +2233,8 @@ a { color: var(--link); text-decoration: none; }
     for (let i = 0; i < jobs.length; i++) {
       const j = jobs[i];
       if (!isObj(j) || !isStr(j.id) || !j.id || !isStr(j.customerName) || !isStr(j.jobDescription) || !STATUSES.includes(j.status)
-          || !isWholeOrNull(j.ratePence) || !isWholeOrNull(j.quotePence) || !isWholeOrNull(j.depositPence))
+          || !isWholeOrNull(j.ratePence) || !isWholeOrNull(j.quotePence) || !isWholeOrNull(j.depositPence)
+          || !(j.pricing === undefined || j.pricing === 'fixed' || j.pricing === 'hourly'))
         return `job ${i + 1} is damaged`;
     }
     for (let i = 0; i < logs.length; i++) {
@@ -2091,6 +2246,15 @@ a { color: var(--link); text-decoration: none; }
         return `time log ${i + 1} is damaged`;
     }
     if (settings !== undefined && !isObj(settings)) return 'its settings are damaged';
+    const clients = payload.data.clients;   // optional: backups made before clients existed don't have it
+    if (clients !== undefined) {
+      if (!Array.isArray(clients)) return 'its clients are damaged';
+      for (let i = 0; i < clients.length; i++) {
+        const c = clients[i];
+        if (!isObj(c) || !isStr(c.id) || !c.id || !isStr(c.name) || !(c.phone === undefined || isStr(c.phone)) || !(c.address === undefined || isStr(c.address)))
+          return `client ${i + 1} is damaged`;
+      }
+    }
     if (shift !== undefined && shift !== null && !isObj(shift)) return 'its timer data is damaged';
     if (payload.photos !== undefined) {
       if (!Array.isArray(payload.photos)) return 'its photos are damaged';
@@ -2170,6 +2334,7 @@ a { color: var(--link); text-decoration: none; }
     try {
       S.jobs = payload.data.jobs;
       S.logs = payload.data.logs;
+      S.clients = Array.isArray(payload.data.clients) ? payload.data.clients : [];
       S.settings = Object.assign({ businessName: '', ratePence: 3500, currency: 'GBP', appearance: 'system' }, payload.data.settings || {});
       S.settings.privacyNoticeSeen = true;   // don't re-show the first-launch notice after a restore
       // A shift that was running when the backup was made is NOT resumed (it may have "started" days ago,
@@ -2215,6 +2380,7 @@ a { color: var(--link); text-decoration: none; }
         <div class="row tap chev" id="ac-earn"><span>📊 Earnings summary</span><span></span></div>
         <div class="row tap chev" id="ac-logs"><span>🗒️ Time logs</span><span></span></div>
         <div class="row tap chev" id="ac-fore"><span>📈 Income forecast</span><span></span></div>
+        <div class="row tap chev" id="ac-clients"><span>👥 Clients</span><span class="v">${S.clients.length || ''}</span></div>
         <div class="row btnrow tap" id="ac-add">⊕ Add time manually</div></div>
       ${isIOS() && !isStandalone() ? `<div class="notice" style="margin-top:16px">📲 Add TradeMate to your Home Screen<div style="font-weight:400;margin-top:6px">
         Safari can delete this site's data if you don't open it for 7 days. Apps on the Home Screen are kept.
@@ -2238,12 +2404,13 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">23 Sep 2026, 14:15</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">23 Sep 2026, 15:42</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
     $('ac-logs').onclick = () => openTimeLogs({ type: 'all' });
     $('ac-fore').onclick = openForecast;
+    $('ac-clients').onclick = openClients;
     $('ac-add').onclick = () => openLogEditor(null, { type: 'all' });
     $('ac-export').onclick = () => { exportBackup(); };
     $('ac-restore').onclick = () => { $('ac-restore-file').value = ''; $('ac-restore-file').click(); };
@@ -2296,6 +2463,7 @@ a { color: var(--link); text-decoration: none; }
       const iv = Period.interval(period, anchor);
       const job = filter.type === 'job' ? jobById(filter.id) : null;
       const totals = Reporting.jobTotals(entries);
+      const inc = Income.period(S.jobs, forecastInfo(), iv, filter);   // real income: completed jobs in this period
       let chart = '';
       if (iv && period !== 'day' && entries.length) {
         const days = Reporting.dailyTotals(entries, iv);
@@ -2309,9 +2477,10 @@ a { color: var(--link); text-decoration: none; }
         <div class="seg">${Period.list.map(p => `<button data-p="${p}" class="${p === period ? 'on' : ''}">${Period.label[p]}</button>`).join('')}</div>
         ${period !== 'all' ? `<div class="periodnav"><button data-n="-1" aria-label="Previous">‹</button><span class="ptitle">${esc(title(iv))}</span><button data-n="1" aria-label="Next">›</button></div>` : ''}
         <div class="group">${filterSelect('ea-f', filter)}</div>
-        <div class="group" style="margin-top:14px"><div class="pad"><div class="hint" style="font-weight:600">Earned</div>
-          <div class="num" style="font-size:36px;font-weight:700">${fmt(s.earningsPence)}</div>
-          <div class="hint">${s.shiftCount} ${s.shiftCount === 1 ? 'entry' : 'entries'} on ${s.activeDays} ${s.activeDays === 1 ? 'day' : 'days'}</div></div></div>
+        <div class="group" style="margin-top:14px"><div class="pad"><div class="hint" style="font-weight:600">Income</div>
+          <div class="num" style="font-size:36px;font-weight:700">${fmt(inc.totalPence)}</div>
+          <div class="hint">${inc.rows.length} completed ${inc.rows.length === 1 ? 'job' : 'jobs'} · ${Duration.decimalHours(s.workedSeconds)} hrs worked in this period</div>
+          ${inc.unpriced ? `<div class="hint" style="color:var(--orange-t);margin-top:6px">⚠️ ${inc.unpriced} completed ${inc.unpriced === 1 ? 'job has' : 'jobs have'} no price and ${inc.unpriced === 1 ? "isn't" : "aren't"} included.</div>` : ''}</div></div>
         ${chart}
         <div class="sh">Statistics</div><div class="group">
           <div class="row"><span>Hours worked</span><span class="v num">${Duration.decimalHours(s.workedSeconds)}</span></div>
@@ -2319,22 +2488,193 @@ a { color: var(--link); text-decoration: none; }
           <div class="row"><span>Non-billable (General)</span><span class="v num">${Duration.decimalHours(s.nonBillableSeconds)}</span></div>
           <div class="row"><span>Break time</span><span class="v num">${Duration.short(s.breakSeconds)}</span></div>
           <div class="row"><span>Average per working day</span><span class="v num">${s.averageSecondsPerActiveDay === null ? '—' : Duration.decimalHours(s.averageSecondsPerActiveDay) + ' hrs'}</span></div>
-          <div class="row"><span>Effective hourly rate</span><span class="v num">${s.effectiveRatePence === null ? '—' : fmt(s.effectiveRatePence)}</span></div>
-          <div class="row"><span>Longest entry</span><span class="v num">${Duration.short(s.longestShiftSeconds)}</span></div></div>
+          <div class="row"><div><div>Effective hourly rate</div><div class="hint">Income ÷ hours spent on those jobs</div></div><span class="v num">${inc.effectiveRatePence === null ? '—' : fmt(inc.effectiveRatePence) + '/hr'}</span></div>
+          <div class="row"><span>Longest entry</span><span class="v num">${Duration.short(s.longestShiftSeconds)}</span></div>
+          <div class="row"><div><div>Time value</div><div class="hint">Hours worked × hourly rate (effort, not income)</div></div><span class="v num">${fmt(s.earningsPence)}</span></div></div>
+        <div class="sh">Completed jobs</div><div class="group">${inc.rows.length ? inc.rows.map(r => `<div class="row tap" data-job="${esc(r.job.id)}"><div style="min-width:0"><div>${esc(r.job.customerName)}</div>
+          <div class="hint">${esc(r.job.jobDescription)} · ${Income.pricing(r.job) === 'hourly' ? 'hourly' : 'fixed price'} · ${Duration.decimalHours(r.workedSeconds)} hrs${r.effectiveRatePence !== null ? ' · ' + esc(fmt(r.effectiveRatePence)) + '/hr' : ''}</div></div>
+          ${r.pence === null ? '<span class="pill orange">No price</span>' : `<b class="num">${fmt(r.pence)}</b>`}</div>`).join('')
+          : '<div class="row hint">No jobs completed in this period.</div>'}</div>
         ${job ? `<div class="sh">Quote vs actual (all time)</div><div class="group">${budgetRows(Reporting.budget(job.quotePence, all.filter(e => e.jobID === job.id), job.ratePence))}</div>` : ''}
-        <div class="sh">By customer</div><div class="group">${totals.length ? totals.map(t => `<div class="row"><div><div>${esc(t.name)}</div>
-          <div class="hint">${Duration.decimalHours(t.workedSeconds)} hrs · ${t.shiftCount} ${t.shiftCount === 1 ? 'entry' : 'entries'}</div></div>
-          <span class="num" style="${t.isBillable ? '' : 'color:var(--sub);font-size:13px'}">${t.isBillable ? fmt(t.earningsPence) : 'Non-billable'}</span></div>`).join('')
-          : '<div class="row hint">No time logged in this period.</div>'}</div>`;
+        <div class="sh">Time by customer</div><div class="group">${totals.length ? totals.map(t => `<div class="row"><div><div>${esc(t.name)}</div>
+          <div class="hint">${t.shiftCount} ${t.shiftCount === 1 ? 'entry' : 'entries'} · ${t.isBillable ? 'time value ' + esc(fmt(t.earningsPence)) : 'non-billable'}</div></div>
+          <span class="num">${Duration.decimalHours(t.workedSeconds)} hrs</span></div>`).join('')
+          : '<div class="row hint">No time logged in this period.</div>'}</div>
+        <div class="sf">Income counts fixed-price jobs at their quoted price and hourly jobs at time × rate, in the period they were completed (the same rule as the Income forecast). Time value is what your hours would be worth at your hourly rate.</div>`;
       const body = ov.querySelector('#ea');
       body.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { period = b.dataset.p; render(); });
       body.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { anchor = Period.shifted(period, anchor, +b.dataset.n); render(); });
       const fs = body.querySelector('#ea-f'); fs.value = Filter.key(filter); fs.onchange = () => { filter = Filter.parse(fs.value); render(); };
+      body.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobEditor(r.dataset.job));
     }
     ov.refresh = render;
     render();
   }
 
+
+
+  // =========================================================================================
+  // CLIENTS — saved customers, so returning clients don't need retyping
+  // =========================================================================================
+  // A job keeps its own copy of name/phone/address (so old job sheets stay as they were); job.clientId
+  // links it to the client for their history. Editing a client changes new jobs only.
+  const normName = n => String(n || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  function clientStats(c) {
+    const info = forecastInfo();
+    const jobs = S.jobs.filter(j => j.clientId === c.id);
+    let spent = 0, last = null;
+    jobs.forEach(j => {
+      const i = info[j.id] || { laborPence: 0, lastLogMs: null };
+      if (j.status === 'Completed') { const v = Income.value(j, i.laborPence); if (v.pence !== null) spent += v.pence; }
+      const when = j.status === 'Completed' ? Income.completedOn(j, i.lastLogMs) : j.createdAt;
+      if (when && (last === null || when > last)) last = when;
+    });
+    return { jobs, spent, last };
+  }
+  // Jobs not yet linked to a client, grouped by customer name
+  function unlinkedCustomers() {
+    const groups = new Map();
+    S.jobs.filter(j => !(j.clientId && clientById(j.clientId)) && normName(j.customerName)).forEach(j => {
+      const k = normName(j.customerName);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(j);
+    });
+    return groups;
+  }
+  function importClientsFromJobs() {
+    let created = 0, linked = 0;
+    unlinkedCustomers().forEach((jobs, key) => {
+      let c = S.clients.find(x => normName(x.name) === key);
+      if (!c) {
+        const latest = [...jobs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+        c = { id: uid(), name: latest.customerName.trim(), phone: latest.phone || '', address: latest.address || '', notes: '', createdAt: Date.now(),
+              latitude: latest.latitude, longitude: latest.longitude, locationPrecision: latest.locationPrecision, locationPinMoved: !!latest.locationPinMoved };
+        S.clients.push(c); created++;
+      }
+      jobs.forEach(j => { j.clientId = c.id; linked++; });
+    });
+    saveAll(); refreshAll(); renderAccount();
+    toast(created ? `Created ${created} client${created === 1 ? '' : 's'} from your jobs.` : `Linked ${linked} job${linked === 1 ? '' : 's'} to your clients.`);
+  }
+
+  function openClients() {
+    const ov = pushOverlay('page');
+    let q = '';
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Account</button><div class="title">Clients</div>
+      <button class="linkbtn bold r" data-add aria-label="Add client" style="font-size:24px">+</button></div><div class="body" id="cl"></div>`;
+    ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
+    ov.querySelector('[data-add]').onclick = () => openClientEditor(null);
+    function render() {
+      const body = ov.querySelector('#cl');
+      const unlinked = unlinkedCustomers();
+      const list = [...S.clients].sort((a, b) => a.name.localeCompare(b.name))
+        .filter(c => !q || normName(c.name).includes(q) || (c.phone || '').replace(/\s/g, '').includes(q.replace(/\s/g, '')));
+      body.innerHTML = `
+        ${S.clients.length ? `<div class="search" style="margin-top:8px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="cl-q" placeholder="Search clients" value="${esc(q)}"></div>` : ''}
+        <div class="group" style="margin-top:12px">${list.length ? list.map(c => { const st = clientStats(c); return `<div class="row tap chev" data-c="${esc(c.id)}"><div style="min-width:0">
+            <div>${esc(c.name)}</div><div class="hint">${esc([c.phone, `${st.jobs.length} ${st.jobs.length === 1 ? 'job' : 'jobs'}`].filter(Boolean).join(' · '))}</div></div>
+            <span class="v num">${st.spent ? esc(fmt(st.spent)) : ''}</span></div>`; }).join('')
+          : `<div class="row hint">${S.clients.length ? 'No clients match your search.' : 'No saved clients yet. Tap + to add one, or tick "Save as a client" when you create a job.'}</div>`}</div>
+        ${unlinked.size ? `<div class="group" style="margin-top:16px"><div class="row btnrow tap" id="cl-import">⊕ Create clients from my existing jobs</div></div>
+          <div class="sf">${unlinked.size} customer name${unlinked.size === 1 ? '' : 's'} in your jobs ${unlinked.size === 1 ? "isn't" : "aren't"} saved as a client yet. Jobs with the same name are grouped together.</div>` : ''}`;
+      body.querySelectorAll('[data-c]').forEach(r => r.onclick = () => openClient(r.dataset.c));
+      const qi = body.querySelector('#cl-q');
+      if (qi) qi.oninput = () => { q = normName(qi.value); const pos = qi.selectionStart; render(); const n = ov.querySelector('#cl-q'); n.focus(); n.setSelectionRange(pos, pos); };
+      const imp = body.querySelector('#cl-import'); if (imp) imp.onclick = importClientsFromJobs;
+    }
+    ov.refresh = render;
+    render();
+  }
+
+  function openClient(id) {
+    const ov = pushOverlay('page');
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Clients</button><div class="title">Client</div>
+      <button class="linkbtn bold r" data-edit>Edit</button></div><div class="body" id="cd"></div>`;
+    ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
+    ov.querySelector('[data-edit]').onclick = () => openClientEditor(id);
+    function render() {
+      const c = clientById(id);
+      if (!c) { closeOverlay(ov); return; }
+      const st = clientStats(c);
+      const tel = phoneUrl(c.phone);
+      const jobs = [...st.jobs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const info = forecastInfo();
+      ov.querySelector('.title').textContent = c.name;
+      ov.querySelector('#cd').innerHTML = `
+        <div class="group" style="margin-top:12px"><div class="pad"><div class="big" style="font-size:24px">${esc(c.name)}</div>
+          <div class="hint" style="margin-top:4px">${st.jobs.length} ${st.jobs.length === 1 ? 'job' : 'jobs'} · spent ${esc(fmt(st.spent))}${st.last ? ' · last ' + esc(sheetDate(st.last)) : ''}</div></div></div>
+        <div class="group" style="margin-top:12px">
+          <div class="row"><span>Phone</span>${tel ? `<a class="v" href="${esc(tel)}" style="color:var(--link)">${esc(c.phone)}</a>` : '<span class="v">—</span>'}</div>
+          <div class="row"><span>Address</span><span class="v" style="text-align:right">${c.address ? esc(c.address) : '—'}</span></div>
+          ${c.notes ? `<div class="row" style="display:block"><div class="hint">Notes</div><div style="white-space:pre-wrap;margin-top:4px">${esc(c.notes)}</div></div>` : ''}
+        </div>
+        <div class="group" style="margin-top:16px"><div class="row btnrow tap" id="cd-new">⊕ New job for ${esc(c.name)}</div></div>
+        <div class="sh">Jobs</div><div class="group">${jobs.length ? jobs.map(j => { const v = Income.value(j, (info[j.id] || {}).laborPence || 0); return `<div class="row tap" data-job="${esc(j.id)}"><div style="min-width:0">
+            <div>${esc(j.jobDescription)}</div><div class="hint">${esc(sheetDate(j.createdAt || Date.now()))}</div></div>
+            <div style="text-align:right">${statusPill(j.status)}${v.pence !== null ? `<div class="hint num" style="margin-top:4px">${esc(fmt(v.pence))}</div>` : ''}</div></div>`; }).join('')
+          : '<div class="row hint">No jobs for this client yet.</div>'}</div>
+        <div class="sf">Changing a client's details applies to new jobs. Existing jobs keep the details they were saved with.</div>`;
+      ov.querySelector('#cd-new').onclick = () => openJobEditor(null, { clientId: id });
+      ov.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobEditor(r.dataset.job));
+    }
+    ov.refresh = render;
+    render();
+  }
+
+  function openClientEditor(id) {
+    const existing = id ? clientById(id) : null;
+    const ov = pushOverlay('sheet');
+    const f = { name: existing ? existing.name : '', phone: existing ? existing.phone || '' : '', address: existing ? existing.address || '' : '', notes: existing ? existing.notes || '' : '' };
+    let location = existing ? LocationEditing.load(existing) : null;
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-cancel>Cancel</button><div class="title">${existing ? 'Edit client' : 'New client'}</div>
+      <button class="linkbtn bold r" data-save>Save</button></div><div class="body" id="ce"></div>`;
+    const body = ov.querySelector('#ce');
+    body.innerHTML = `
+      <div class="sh">Client</div><div class="group">
+        <div class="row"><input type="text" data-c="name" placeholder="Name" autocomplete="off"></div>
+        <div class="row"><input type="tel" data-c="phone" placeholder="Phone" autocomplete="tel"></div></div>
+      <div class="sh">Address</div><div class="group">
+        <div class="row"><textarea data-c="address" placeholder="Address" rows="2"></textarea></div>
+        <div class="row btnrow tap" id="ce-find">🔍 Find address</div></div>
+      <div class="sh">Notes</div><div class="group"><div class="row"><textarea data-c="notes" placeholder="e.g. prefers texts, gate code, parking" rows="3"></textarea></div></div>
+      ${existing ? `<div class="group" style="margin-top:24px"><div class="row btnrow tap" id="ce-del" style="color:var(--red)">Delete client</div></div>
+        <div class="sf">Deleting a client keeps all their jobs; they just won't be linked to a saved client any more.</div>` : ''}`;
+    body.querySelectorAll('[data-c]').forEach(inp => {
+      inp.value = f[inp.dataset.c];
+      inp.addEventListener('input', () => {
+        f[inp.dataset.c] = inp.value;
+        if (inp.dataset.c === 'address') location = LocationEditing.afterTextEdit(location, inp.value);
+        ov.querySelector('[data-save]').disabled = !f.name.trim();
+      });
+    });
+    ov.querySelector('[data-save]').disabled = !f.name.trim();
+    body.querySelector('#ce-find').onclick = () => openAddressSearch(f.address, cand => {
+      location = LocationEditing.selecting(cand);
+      f.address = cand.formattedAddress;
+      body.querySelector('[data-c=address]').value = cand.formattedAddress;
+    });
+    ov.querySelector('[data-cancel]').onclick = () => closeOverlay(ov);
+    ov.querySelector('[data-save]').onclick = () => {
+      if (!f.name.trim()) return;
+      const dupe = S.clients.find(c => c.id !== id && normName(c.name) === normName(f.name));
+      if (dupe) { toast(`You already have a client called ${dupe.name}.`); return; }
+      const c = existing || { id: uid(), createdAt: Date.now() };
+      c.name = f.name.trim(); c.phone = f.phone.trim(); c.notes = f.notes.trim();
+      LocationEditing.apply(location, f.address.trim(), c);
+      if (!existing) S.clients.push(c);
+      saveAll(); closeOverlay(ov); refreshAll(); renderAccount();
+      toast(existing ? 'Client updated.' : 'Client saved.');
+    };
+    const del = body.querySelector('#ce-del');
+    if (del) del.onclick = () => actionSheet(`Delete ${existing.name}?`, 'Their jobs are kept; they just won\'t be linked to a saved client any more.', [
+      { label: 'Delete client', role: 'destructive', action: () => {
+        S.clients = S.clients.filter(c => c.id !== id);
+        S.jobs.forEach(j => { if (j.clientId === id) j.clientId = null; });
+        saveAll(); closeOverlay(ov); refreshAll(); renderAccount();
+        toast('Client deleted. Their jobs are kept.');
+      } },
+      { label: 'Cancel', role: 'cancel' }]);
+  }
 
   // =========================================================================================
   // INCOME FORECAST — done + booked-in jobs per month
@@ -2343,7 +2683,8 @@ a { color: var(--link); text-decoration: none; }
     const info = {};
     S.jobs.forEach(j => {
       const logs = S.logs.filter(l => l.jobId === j.id);
-      info[j.id] = { laborPence: logs.reduce((s2, l) => s2 + TM.entryEarnings(entryOf(l)), 0), lastLogMs: logs.length ? Math.max(...logs.map(l => l.start)) : null };
+      info[j.id] = { laborPence: logs.reduce((s2, l) => s2 + TM.entryEarnings(entryOf(l)), 0), lastLogMs: logs.length ? Math.max(...logs.map(l => l.start)) : null,
+                     workedSeconds: logs.reduce((s2, l) => s2 + (l.workedSeconds || 0), 0) };
     });
     return info;
   }
@@ -2356,7 +2697,7 @@ a { color: var(--link); text-decoration: none; }
     ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Account</button><div class="title">Income forecast</div><span></span></div><div class="body" id="fc"></div>`;
     ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
     const jobRow = r => `<div class="row tap" data-job="${esc(r.job.id)}"><div style="min-width:0"><div>${esc(r.job.customerName)}</div>
-        <div class="hint">${esc(r.job.jobDescription)} · ${esc(r.basis)}${r.from === 'labour' ? ' · no quote, labour value' : ''}</div></div>
+        <div class="hint">${esc(r.job.jobDescription)} · ${esc(r.basis)}${r.from === 'labour' ? (Income.pricing(r.job) === 'hourly' ? ' · hourly, time × rate' : ' · no quote, labour value') : r.from === 'estimate' ? ' · hourly estimate' : ''}</div></div>
         ${r.pence === null ? '<span class="pill orange">No quote</span>' : `<b class="num">${fmt(r.pence)}</b>`}</div>`;
     function render() {
       const info = forecastInfo();
