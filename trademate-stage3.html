@@ -881,7 +881,9 @@ a { color: var(--link); text-decoration: none; }
   // ---------- Storage (separate keys, so the older web app's data is never touched) ----------
   const K = { jobs: 'tm3.jobs', logs: 'tm3.logs', settings: 'tm3.settings', shift: 'tm3.shift' };
   const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } };
-  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } };
+  // Returns true/false so callers can tell whether the save actually happened
+  // (storage full, private browsing blocking storage, etc. throw here).
+  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
   const S = {
     jobs: load(K.jobs, []),
     logs: load(K.logs, []),
@@ -889,7 +891,19 @@ a { color: var(--link); text-decoration: none; }
     shift: Object.assign(Shift.create(), load(K.shift, {})),
     timerSel: null, jobSearch: '', savedMsg: ''
   };
-  const saveAll = () => { store(K.jobs, S.jobs); store(K.logs, S.logs); store(K.settings, S.settings); store(K.shift, S.shift); };
+  // Shown at most once every 8s, so a stream of saves while storage is broken doesn't spam toasts.
+  let lastSaveFailToast = 0;
+  function reportSaveFailure() {
+    const now = Date.now();
+    if (now - lastSaveFailToast < 8000) return;
+    lastSaveFailToast = now;
+    toast("Couldn't save — your changes may be lost. Storage may be full or blocked (e.g. Private Browsing).");
+  }
+  const saveAll = () => {
+    const ok = [store(K.jobs, S.jobs), store(K.logs, S.logs), store(K.settings, S.settings), store(K.shift, S.shift)];
+    if (ok.includes(false)) reportSaveFailure();
+    return !ok.includes(false);
+  };
 
   const cur = () => S.settings.currency;
   const fmt = p => Money.format(p, cur());
@@ -1601,6 +1615,7 @@ a { color: var(--link); text-decoration: none; }
       if (files.length > room) toast(`Only ${PHOTO_LIMIT} ${addKind} photos per job — added the first ${room}.`);
       for (const file of files.slice(0, Math.max(0, room))) {
         try { await addPhoto(editId, addKind, file); } catch (e) { toast(e.message || "Couldn't add that photo"); }
+        if (totalPhotoBytes() > PHOTO_WARN_BYTES) toast(`Photos now use ${formatBytes(totalPhotoBytes())} on this device (over about 200 MB). Export a backup and consider removing old photos.`);
       }
       renderPhotos();
     };
@@ -1611,8 +1626,7 @@ a { color: var(--link); text-decoration: none; }
     update();
 
     ov.querySelector('[data-cancel]').onclick = () => closeOverlay(ov);
-    ov.querySelector('[data-save]').onclick = () => {
-      if (!(f.customerName.trim() && f.jobDescription.trim())) return;
+    function writeJob() {
       let target = job && jobById(job.id);
       const isNew = !target;
       if (isNew) target = { id: editId, createdAt: Date.now(), address: '', latitude: null, longitude: null, locationPrecision: null, locationPinMoved: false,
@@ -1642,16 +1656,37 @@ a { color: var(--link); text-decoration: none; }
       target.deliveryDone = f.hasDeliver && f.deliverDone;
       target.collectionTime = f.hasCollect && /^\d{2}:\d{2}$/.test(f.collectTime) ? f.collectTime : null;
       target.deliveryTime = f.hasDeliver && /^\d{2}:\d{2}$/.test(f.deliverTime) ? f.deliverTime : null;
+      // Quote and deposit: blank means "not set" (allowed); non-blank text that won't parse
+      // is caught before we ever reach here, so these always parse cleanly at this point.
       const q = Money.parsePence(f.quote);
-      target.quotePence = q !== null && q >= 0 ? q : null;
+      target.quotePence = f.quote.trim() !== '' && q !== null && q >= 0 ? q : null;
       const dep = Money.parsePence(f.deposit);
-      if (dep !== null && dep > 0) { target.depositPence = dep; target.depositDate = f.depositDate || todayISO(); }
+      if (f.deposit.trim() !== '' && dep !== null && dep > 0) { target.depositPence = dep; target.depositDate = f.depositDate || todayISO(); }
       else { target.depositPence = null; target.depositDate = null; }
-      const r = Money.parsePence(f.rate);
-      target.ratePence = Math.max(0, r === null ? 0 : r);
+      target.ratePence = Math.max(0, Money.parsePence(f.rate));
       if (isNew) S.jobs.push(target);
       saved = true;
       saveAll(); closeOverlay(ov);
+    }
+    ov.querySelector('[data-save]').onclick = () => {
+      if (!(f.customerName.trim() && f.jobDescription.trim())) return;
+      // Non-blank text that doesn't parse as an amount is refused rather than silently
+      // dropped to £0.00 or "no quote" — the person gets a chance to fix a typo.
+      const badQuote = f.quote.trim() !== '' && Money.parsePence(f.quote) === null;
+      const badDeposit = f.deposit.trim() !== '' && Money.parsePence(f.deposit) === null;
+      const rateVal = Money.parsePence(f.rate);
+      const badRate = f.rate.trim() === '' || rateVal === null || rateVal < 0;
+      if (badQuote) { toast('Enter a valid quoted price, or leave it blank.'); return; }
+      if (badDeposit) { toast('Enter a valid deposit amount, or leave it blank.'); return; }
+      if (badRate) { toast('Enter a valid hourly rate for this job.'); return; }
+      if (rateVal === 0) {
+        actionSheet('Hourly rate is £0.00', "No labour value will be recorded for time logged to this job while its rate is £0.00. You can still save it this way if that's what you want.", [
+          { label: 'Save with £0.00 rate', action: writeJob },
+          { label: 'Go back and fix it', role: 'cancel' }
+        ]);
+        return;
+      }
+      writeJob();
     };
   }
   function switchHTML(key) {
@@ -1893,16 +1928,140 @@ a { color: var(--link); text-decoration: none; }
   }
 
   // =========================================================================================
+  // BACKUP & RESTORE — one JSON file with jobs, logs, settings and every photo (base64)
+  // =========================================================================================
+  const BACKUP_FORMAT = 'trademate-backup';
+  const BACKUP_VERSION = 1;
+  const PHOTO_WARN_BYTES = 200 * 1024 * 1024;   // ~200 MB
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);   // "data:<mime>;base64,XXXX"
+      r.onerror = () => reject(r.error || new Error("Couldn't read a photo"));
+      r.readAsDataURL(blob);
+    });
+  }
+  async function base64ToBlob(dataUrl) {
+    const res = await fetch(dataUrl);       // decodes a data: URL without a manual atob loop
+    return res.blob();
+  }
+
+  function totalPhotoBytes() {
+    let total = 0;
+    for (const list of PH.byJob.values()) for (const r of list) total += (r.blob && r.blob.size) || 0;
+    return total;
+  }
+  function formatBytes(n) {
+    return n >= 1024 * 1024 ? (n / (1024 * 1024)).toFixed(n >= 100 * 1024 * 1024 ? 0 : 1) + ' MB' : Math.round(n / 1024) + ' KB';
+  }
+
+  function backupStatus() {
+    const last = S.settings.lastBackupAt;
+    if (!last) return { label: 'Never', warn: true, note: "You haven't exported a backup yet. Your jobs, time logs and photos exist only on this device — export one regularly so a lost, reset or wiped device can't lose them." };
+    const days = (Date.now() - last) / 86400000;
+    const label = new Date(last).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (days > 7) return { label, warn: true, note: `It's been ${Math.floor(days)} days since your last backup. Export a fresh one so recent work isn't at risk.` };
+    return { label, warn: false, note: '' };
+  }
+
+  async function exportBackup() {
+    let photos = [], photosOk = true;
+    try {
+      const all = await idbTx('readonly', st => st.getAll()) || [];
+      photos = await Promise.all(all.map(async r => ({
+        id: r.id, jobId: r.jobId, kind: r.kind, ts: r.ts, mime: (r.blob && r.blob.type) || 'image/jpeg',
+        data: await blobToBase64(r.blob)
+      })));
+    } catch (e) { photosOk = false; }
+    const payload = {
+      app: 'TradeMate', format: BACKUP_FORMAT, version: BACKUP_VERSION,
+      exportedAt: new Date().toISOString(),
+      data: { jobs: S.jobs, logs: S.logs, settings: S.settings, shift: S.shift },
+      photos
+    };
+    const name = `TradeMate-backup-${todayISO()}.json`;
+    const res = await shareOrDownload(name, 'application/json', JSON.stringify(payload), 'TradeMate backup');
+    if (res === 'failed') { toast("Couldn't create the backup file."); return; }
+    S.settings.lastBackupAt = Date.now();
+    saveAll();
+    renderAccount();
+    toast(!photosOk ? 'Backup saved, but photos could not be read and were left out.' : (res === 'shared' ? 'Backup shared.' : 'Backup downloaded.'));
+  }
+
+  function isValidBackup(payload) {
+    return !!payload && typeof payload === 'object' && payload.format === BACKUP_FORMAT
+      && payload.data && Array.isArray(payload.data.jobs) && Array.isArray(payload.data.logs)
+      && (payload.photos === undefined || Array.isArray(payload.photos));
+  }
+
+  async function restoreBackupFile(file) {
+    let payload;
+    try { payload = JSON.parse(await file.text()); }
+    catch (e) { toast("That file isn't a valid TradeMate backup (not readable JSON)."); return; }
+    if (!isValidBackup(payload)) { toast("That file isn't a valid TradeMate backup."); return; }
+    const jobCount = payload.data.jobs.length, logCount = payload.data.logs.length, photoCount = (payload.photos || []).length;
+    const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'an unknown date';
+    actionSheet('Replace everything on this device?',
+      `This backup is from ${when} and has ${jobCount} job${jobCount === 1 ? '' : 's'}, ${logCount} time log${logCount === 1 ? '' : 's'} and ${photoCount} photo${photoCount === 1  ? '' : 's'}. ` +
+      `Restoring replaces all jobs, time logs, settings and photos currently on this device. This can't be undone.`,
+      [
+        { label: 'Restore and replace everything', role: 'destructive', action: () => doRestoreBackup(payload) },
+        { label: 'Cancel', role: 'cancel' }
+      ]);
+  }
+
+  async function doRestoreBackup(payload) {
+    try {
+      await idbTx('readwrite', st => st.clear());
+      PH.urls.forEach(u => URL.revokeObjectURL(u));
+      PH.urls.clear(); PH.byJob.clear();
+      for (const p of (payload.photos || [])) {
+        const blob = await base64ToBlob(p.data).catch(() => null);
+        if (!blob) continue;   // skip a photo that can't be decoded rather than aborting the whole restore
+        const rec = { id: p.id || uid(), jobId: p.jobId, kind: p.kind, ts: p.ts || Date.now(), blob };
+        await idbTx('readwrite', st => st.put(rec));
+        if (!PH.byJob.has(rec.jobId)) PH.byJob.set(rec.jobId, []);
+        PH.byJob.get(rec.jobId).push(rec);
+      }
+      S.jobs = payload.data.jobs;
+      S.logs = payload.data.logs;
+      S.settings = Object.assign({ businessName: '', ratePence: 3500, currency: 'GBP', appearance: 'system' }, payload.data.settings || {});
+      S.shift = Object.assign(Shift.create(), payload.data.shift || {});
+      const ok = saveAll();
+      applyTheme();
+      showTab('account');
+      refreshAll();
+      renderAccount();
+      toast(ok ? 'Backup restored.' : "Restored, but saving to this device failed — export a fresh backup once storage is freed up.");
+    } catch (e) {
+      toast("Couldn't restore that backup: " + (e && e.message ? e.message : 'unknown error'));
+    }
+  }
+
+  // =========================================================================================
   // ACCOUNT TAB (AccountView.swift)
   // =========================================================================================
   function renderAccount() {
     const st = S.settings;
+    const bstat = backupStatus();
+    const photoBytes = totalPhotoBytes();
+    const overLimit = photoBytes > PHOTO_WARN_BYTES;
     $('tab-account').innerHTML = `<div class="large">Account</div>
       <div class="sh">Work</div><div class="group">
         <div class="row tap chev" id="ac-earn"><span>📊 Earnings summary</span><span></span></div>
         <div class="row tap chev" id="ac-logs"><span>🗒️ Time logs</span><span></span></div>
         <div class="row tap chev" id="ac-fore"><span>📈 Income forecast</span><span></span></div>
         <div class="row btnrow tap" id="ac-add">⊕ Add time manually</div></div>
+      <div class="sh">Backup</div><div class="group">
+        <div class="row"><span>Last backup</span><span class="v" style="${bstat.warn ? 'color:var(--orange-t);font-weight:600' : ''}">${esc(bstat.label)}</span></div>
+        <div class="row"><span>Photo storage used</span><span class="v" style="${overLimit ? 'color:var(--orange-t);font-weight:600' : ''}">${esc(formatBytes(photoBytes))}</span></div>
+        <div class="row btnrow tap" id="ac-export">⬆️ Export backup</div>
+        <div class="row btnrow tap" id="ac-restore">⬇️ Restore from backup</div></div>
+      ${bstat.warn ? `<div class="sf" style="color:var(--orange-t)">⚠️ ${esc(bstat.note)}</div>` : ''}
+      ${overLimit ? `<div class="sf" style="color:var(--orange-t)">⚠️ Photos are using over 200 MB in this browser. Consider exporting a backup and removing photos from older completed jobs to keep this device running smoothly.</div>` : ''}
+      <div class="sf">Jobs, time logs, settings and photos are stored only in this browser on this device. They don't sync anywhere, so back them up regularly.</div>
+      <input type="file" accept="application/json" id="ac-restore-file" style="display:none">
       <div class="sh">Business name</div><div class="group"><div class="row"><input type="text" id="ac-biz" placeholder="TradeMate"></div></div>
       <div class="sf">Shown on job sheets and exports. Leave blank to use TradeMate.</div>
       <div class="sh">Charging</div><div class="group">
@@ -1918,10 +2077,17 @@ a { color: var(--link); text-decoration: none; }
     $('ac-logs').onclick = () => openTimeLogs({ type: 'all' });
     $('ac-fore').onclick = openForecast;
     $('ac-add').onclick = () => openLogEditor(null, { type: 'all' });
+    $('ac-export').onclick = () => { exportBackup(); };
+    $('ac-restore').onclick = () => { $('ac-restore-file').value = ''; $('ac-restore-file').click(); };
+    $('ac-restore-file').onchange = e => { const file = e.target.files[0]; if (file) restoreBackupFile(file); };
     $('ac-biz').value = st.businessName;
     $('ac-biz').oninput = e => { st.businessName = e.target.value; saveAll(); };
     $('ac-rate').value = Money.plain(st.ratePence);
-    $('ac-rate').onchange = e => { const p = Money.parsePence(e.target.value); if (p !== null && p >= 0) st.ratePence = p; e.target.value = Money.plain(st.ratePence); saveAll(); refreshAll(); };
+    $('ac-rate').onchange = e => {
+      const p = Money.parsePence(e.target.value);
+      if (p === null || p < 0) { toast('Enter a valid hourly rate.'); e.target.value = Money.plain(st.ratePence); return; }
+      st.ratePence = p; e.target.value = Money.plain(st.ratePence); saveAll(); refreshAll();
+    };
     $('ac-cur').value = st.currency;
     $('ac-cur').onchange = e => { st.currency = e.target.value; saveAll(); refreshAll(); };
     $('ac-app').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.a === st.appearance); b.onclick = () => { st.appearance = b.dataset.a; saveAll(); applyTheme(); renderAccount(); }; });
@@ -2726,9 +2892,21 @@ a { color: var(--link); text-decoration: none; }
   renderTimer();
   renderJobs();
   renderAccount();
-  loadPhotos().then(() => renderJobList());
+  loadPhotos().then(() => { renderJobList(); renderAccount(); });   // Account shows photo storage, so redraw it once photos have loaded
   setInterval(renderTimerDynamic, 1000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderTimerDynamic(); });
+  if (!S.settings.privacyNoticeSeen) {
+    // Marked and saved immediately (not on dismissal), so a reload before tapping "Got it" can't bring it back.
+    S.settings.privacyNoticeSeen = true;
+    saveAll();
+    setTimeout(() => actionSheet('Your data stays on this device',
+      "Jobs, time logs, settings and photos are saved only in this browser on this device. Nothing is sent anywhere and nothing syncs to your other devices. If you clear Safari's data, reset this device, or switch phones, everything here is lost unless you've exported a backup. You'll find Export backup under Account.",
+      [{ label: 'Got it', role: 'cancel' }]), 400);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { renderTimerDynamic(); return; }
+    if (typeof locWatch !== 'undefined' && locWatch !== null) stopLocating();   // stop GPS use once the page is hidden
+  });
+  window.addEventListener('pagehide', () => { if (typeof locWatch !== 'undefined' && locWatch !== null) stopLocating(); });
 })();
 
 </script>
