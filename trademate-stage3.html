@@ -1975,6 +1975,11 @@ a { color: var(--link); text-decoration: none; }
   }
 
   // Home Screen apps are exempt from Safari's 7-day deletion of website data.
+  // iPhone/iPod/iPad, including iPadOS (which reports itself as a Mac with a touchscreen)
+  function isIOS() {
+    try { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+    catch (e) { return false; }
+  }
   function isStandalone() {
     try { return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches; }
     catch (e) { return false; }
@@ -2048,24 +2053,43 @@ a { color: var(--link); text-decoration: none; }
       && (payload.photos === undefined || Array.isArray(payload.photos));
   }
 
-  async function restoreBackupFile(file) {
+  const LARGE_RESTORE_BYTES = 100 * 1024 * 1024;   // above this, warn before reading the file
+  // Entry point for the Restore button: very large files get a warning BEFORE anything is read.
+  // Nothing is changed on the device until the person confirms the final restore sheet.
+  function restoreBackupFile(file) {
+    if (file.size > LARGE_RESTORE_BYTES) {
+      actionSheet('Large backup file',
+        `This backup is ${formatBytes(file.size)}. Restoring a file this large needs a lot of memory and may fail or close Safari on some iPhones. If that happens, nothing on this device will have been changed.`,
+        [
+          { label: 'Try anyway', action: () => readBackupFile(file) },
+          { label: 'Cancel', role: 'cancel' }
+        ]);
+      return;
+    }
+    readBackupFile(file);
+  }
+  async function readBackupFile(file) {
     let payload;
     try { payload = JSON.parse(await file.text()); }
     catch (e) { toast("That file isn't a valid TradeMate backup (not readable JSON)."); return; }
     if (!isValidBackup(payload)) { toast("That file isn't a valid TradeMate backup."); return; }
     const jobCount = payload.data.jobs.length, logCount = payload.data.logs.length, photoCount = (payload.photos || []).length;
     const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'an unknown date';
+    const dataOnly = payload.photosIncluded === false;
+    const timerNote = payload.data.shift && payload.data.shift.isRunning
+      ? " The timer was running when this backup was made. It will be restored as stopped, and that unfinished shift won't be saved." : '';
     actionSheet('Replace everything on this device?',
-      payload.photosIncluded === false
+      (dataOnly
         ? `This data-only backup is from ${when} and has ${jobCount} job${jobCount === 1 ? '' : 's'} and ${logCount} time log${logCount === 1 ? '' : 's'} (no photos). ` +
           `Restoring replaces all jobs, time logs and settings on this device. Photos already on this device are kept. This can't be undone.`
         : `This backup is from ${when} and has ${jobCount} job${jobCount === 1 ? '' : 's'}, ${logCount} time log${logCount === 1 ? '' : 's'} and ${photoCount} photo${photoCount === 1  ? '' : 's'}. ` +
-          `Restoring replaces all jobs, time logs, settings and photos currently on this device. This can't be undone.`,
+          `Restoring replaces all jobs, time logs, settings and photos currently on this device. This can't be undone.`) + timerNote,
       [
-        { label: 'Restore and replace everything', role: 'destructive', action: () => doRestoreBackup(payload) },
+        { label: dataOnly ? 'Restore jobs and time logs' : 'Restore and replace everything', role: 'destructive', action: () => doRestoreBackup(payload) },
         { label: 'Cancel', role: 'cancel' }
       ]);
   }
+
 
   async function doRestoreBackup(payload) {
     const withPhotos = payload.photosIncluded !== false;   // data-only backups leave this device's photos alone
@@ -2097,14 +2121,29 @@ a { color: var(--link); text-decoration: none; }
       S.logs = payload.data.logs;
       S.settings = Object.assign({ businessName: '', ratePence: 3500, currency: 'GBP', appearance: 'system' }, payload.data.settings || {});
       S.settings.privacyNoticeSeen = true;   // don't re-show the first-launch notice after a restore
-      S.shift = Object.assign(Shift.create(), payload.data.shift || {});
+      // A shift that was running when the backup was made is NOT resumed (it may have "started" days ago,
+      // which would become one huge log when stopped): restore the timer as stopped instead.
+      S.shift = payload.data.shift && payload.data.shift.isRunning ? Shift.create() : Object.assign(Shift.create(), payload.data.shift || {});
       S.timerSel = null;
       const ok = saveAll();
+      // Data-only restore: photos kept on the device whose job isn't in the restored data can't be seen
+      // anywhere, so remove them. Only done once the restored data has actually been saved.
+      let orphansRemoved = 0;
+      if (!withPhotos && ok) {
+        const jobIds = new Set(S.jobs.map(j => j.id));
+        const orphans = [];
+        PH.byJob.forEach((list, jobId) => { if (!jobIds.has(jobId)) orphans.push(...list); });
+        for (const rec of orphans) {
+          try { await deletePhoto(rec); orphansRemoved++; } catch (e) { /* keep going */ }
+        }
+        orphans.forEach(rec => { if (PH.byJob.has(rec.jobId) && !PH.byJob.get(rec.jobId).length) PH.byJob.delete(rec.jobId); });
+      }
       applyTheme();
       showTab('account');
       refreshAll();
       renderAccount();
-      toast(ok ? (withPhotos ? 'Backup restored.' : 'Backup restored. Photos on this device were kept (the backup had none).')
+      const orphanNote = orphansRemoved ? ` ${orphansRemoved} photo${orphansRemoved === 1 ? '' : 's'} for jobs not in this backup ${orphansRemoved === 1 ? 'was' : 'were'} removed.` : '';
+      toast(ok ? (withPhotos ? 'Backup restored.' : 'Backup restored.' + (orphanNote || ' Photos on this device were kept (the backup had none).'))
                : "Restored, but saving to this device failed — export a fresh backup once storage is freed up.");
     } catch (e) {
       toast("Couldn't restore that backup: " + (e && e.message ? e.message : 'unknown error'));
@@ -2126,7 +2165,7 @@ a { color: var(--link); text-decoration: none; }
         <div class="row tap chev" id="ac-logs"><span>🗒️ Time logs</span><span></span></div>
         <div class="row tap chev" id="ac-fore"><span>📈 Income forecast</span><span></span></div>
         <div class="row btnrow tap" id="ac-add">⊕ Add time manually</div></div>
-      ${!isStandalone() ? `<div class="notice" style="margin-top:16px">📲 Add TradeMate to your Home Screen<div style="font-weight:400;margin-top:6px">
+      ${isIOS() && !isStandalone() ? `<div class="notice" style="margin-top:16px">📲 Add TradeMate to your Home Screen<div style="font-weight:400;margin-top:6px">
         Safari can delete this site's data if you don't open it for 7 days. Apps on the Home Screen are kept.
         <b>First tap Export backup below</b>, then in Safari tap Share → Add to Home Screen, open TradeMate from the Home Screen,
         and use Restore from backup there. The Home Screen app has its own separate storage, so it starts empty until you restore.</div></div>` : ''}
