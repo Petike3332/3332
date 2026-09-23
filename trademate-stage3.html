@@ -64,12 +64,12 @@ a { color: var(--link); text-decoration: none; }
 .group { background: var(--card); border-radius: 12px; margin: 0 16px; overflow: hidden; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 11px 16px;
   position: relative; }
-.row + .row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep); }
+.row + .row::before, #je-clients + .row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep); }
 .row .v { color: var(--sub); text-align: right; }
 .row.tap { cursor: pointer; }
 .row.tap:active { background: var(--fill); }
 .chev::after { content: "›"; color: var(--faint); font-size: 22px; margin-left: 6px; line-height: 1; }
-.row input[type=text], .row input[type=tel], .row input[type=search], .row input.inp, .row textarea, .row select {
+.row input[type=text], .row input[type=tel], .row input[type=email], .row input[type=search], .row input.inp, .row textarea, .row select {
   border: 0; background: transparent; outline: none; width: 100%; padding: 0; }
 .row input.right { text-align: right; }
 .row select { -webkit-appearance: none; appearance: none; text-align: right; color: var(--link); }
@@ -1025,6 +1025,9 @@ a { color: var(--link); text-decoration: none; }
   }
   const statusLabel = s => (s === 'Declined' ? 'Not going ahead' : s);
   const statusPill = s => `<span class="pill ${s === 'New' ? 'blue' : s === 'In Progress' ? 'green' : s === 'Enquiry' ? 'orange' : 'gray'}">${esc(statusLabel(s))}</span>`;
+  const EMAIL_RE = /^[^\s@<>()"',;:\\]+@[^\s@<>()"',;:\\]+\.[^\s@<>()"',;:\\]{2,}$/;
+  const validEmail = e => EMAIL_RE.test(String(e || '').trim());
+  const emailUrl = e => (validEmail(e) ? 'mailto:' + String(e).trim() : null);
   const phoneUrl = p => { const d = String(p || '').replace(/[^0-9+]/g, ''); return d ? 'tel:' + d : null; };
   const directionsUrl = j => JobLocation.has(j) ? `https://maps.apple.com/?daddr=${j.latitude},${j.longitude}`
     : (j.address ? 'https://maps.apple.com/?daddr=' + encodeURIComponent(j.address) : null);
@@ -1541,7 +1544,7 @@ a { color: var(--link); text-decoration: none; }
     const q = S.jobSearch.trim().toLowerCase();
     const qNum = q.replace(/^#/, '');
     const matches = j => !q || (/^\d+$/.test(qNum) && String(j.number) === qNum)
-      || [j.customerName, j.jobDescription, j.address, j.phone].some(v => (v || '').toLowerCase().includes(q));
+      || [j.customerName, j.jobDescription, j.address, j.phone, j.email].some(v => (v || '').toLowerCase().includes(q));
     const info = forecastInfo();
     const doneOn = j => Income.completedOn(j, (info[j.id] || {}).lastLogMs) || j.createdAt || 0;
     const nextDate = j => { const ds = dateFields(j).filter(([f]) => j[f] && !isDone(j, f)).map(([f]) => bookedMs(j[f], timeOf(j, f))); return ds.length ? Math.min(...ds) : Infinity; };
@@ -1581,7 +1584,7 @@ a { color: var(--link); text-decoration: none; }
       return;
     }
     box.innerHTML = `${jobs.map((j, i) => {
-      const call = phoneUrl(j.phone), dir = directionsUrl(j);
+      const call = phoneUrl(j.phone), dir = directionsUrl(j), mail = emailUrl(j.email);
       const h = headingFor(j, i);
       return (h ? `<div class="sh jhead">${esc(h)}</div>` : '') + swipeRow(`<div class="jobrow">
         <div class="top"><span class="name">${jobNo(j) ? `<span class="jno">${esc(jobNo(j))}</span>` : ''}${esc(j.customerName)}</span>${statusPill(j.status)}</div>
@@ -1592,7 +1595,7 @@ a { color: var(--link); text-decoration: none; }
         ${photoStrip(j)}
         ${j.status === 'Enquiry' ? `<div class="acts"><button type="button" class="btn prim small" data-convert="${esc(j.id)}">✓ Turn into job</button><button type="button" class="btn tint small" data-decline="${esc(j.id)}">Not going ahead</button></div>` : ''}
         ${j.status === 'Declined' ? `<div class="acts"><button type="button" class="btn tint small" data-reopen="${esc(j.id)}">↩ Reopen enquiry</button></div>` : ''}
-        <div class="acts">${call ? `<a class="btn prim small" href="${call}">📞 Call</a>` : ''}${dir ? `<a class="btn tint small" href="${dir}" target="_blank" rel="noopener">➤ Directions</a>` : ''}<button type="button" class="btn tint small" data-sheet="${esc(j.id)}">🖨️ Job sheet</button></div>
+        <div class="acts">${call ? `<a class="btn prim small" href="${call}">📞 Call</a>` : ''}${mail ? `<a class="btn tint small" href="${esc(mail)}">✉️ Email</a>` : ''}${dir ? `<a class="btn tint small" href="${dir}" target="_blank" rel="noopener">➤ Directions</a>` : ''}<button type="button" class="btn tint small" data-sheet="${esc(j.id)}">🖨️ Job sheet</button></div>
       </div>`, [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }], j.id, 'jobcard');
     }).join('')}<div class="sf" style="margin-top:0">Swipe left on a job to edit or delete it.</div>`;
     bindSwipes(box, {
@@ -1628,7 +1631,7 @@ a { color: var(--link); text-decoration: none; }
     const job = jobById(jobId);
     const ov = pushOverlay('sheet');
     const f = job ? {
-      customerName: job.customerName, phone: job.phone || '', jobDescription: job.jobDescription, status: job.status,
+      customerName: job.customerName, phone: job.phone || '', email: job.email || '', jobDescription: job.jobDescription, status: job.status,
       quote: job.quotePence === null || job.quotePence === undefined ? '' : Money.plain(job.quotePence),
       pricing: Income.pricing(job),
       deposit: job.depositPence ? Money.plain(job.depositPence) : '', depositDate: job.depositDate || todayISO(),
@@ -1640,13 +1643,13 @@ a { color: var(--link); text-decoration: none; }
       collectDoneAt: job.collectionDoneAt || null, deliverDoneAt: job.deliveryDoneAt || null, meetingDoneAt: job.meetingDoneAt || null,
       hasMeeting: !!job.meetingDate, meeting: job.meetingDate || todayISO(), meetingTime: job.meetingTime || '', meetingNote: job.meetingNote || '', meetingDone: !!job.meetingDone, meetingPlace: job.meetingPlace === 'workshop' ? 'workshop' : 'customer',
       address: job.address || '', notes: job.notes || '', clientId: job.clientId && clientById(job.clientId) ? job.clientId : null, saveClient: false
-    } : { customerName: '', phone: '', jobDescription: '', status: 'New', quote: '', pricing: 'fixed', deposit: '', depositDate: todayISO(), rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
+    } : { customerName: '', phone: '', email: '', jobDescription: '', status: 'New', quote: '', pricing: 'fixed', deposit: '', depositDate: todayISO(), rate: Money.plain(JobRates.initialRate(S.settings.ratePence)),
           hasCollect: false, collect: todayISO(), hasDeliver: false, deliver: todayISO(), collectType: 'collect', deliverType: 'deliver', collectTime: '', deliverTime: '', collectDone: false, deliverDone: false, collectDoneAt: null, deliverDoneAt: null, meetingDoneAt: null, hasMeeting: false, meeting: todayISO(), meetingTime: '', meetingNote: '', meetingDone: false, meetingPlace: 'customer', address: '', notes: '', clientId: null, saveClient: false };
     let location = job ? LocationEditing.load(job) : null;
     if (!job && preset && preset.enquiry) f.status = 'Enquiry';
     if (!job && preset && preset.clientId && clientById(preset.clientId)) {   // "New job" from a client's page
       const c = clientById(preset.clientId);
-      Object.assign(f, { clientId: c.id, customerName: c.name, phone: c.phone || '', address: c.address || '' });
+      Object.assign(f, { clientId: c.id, customerName: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '' });
       location = LocationEditing.load(c);
     }
     let mini = null;
@@ -1661,6 +1664,7 @@ a { color: var(--link); text-decoration: none; }
         <div class="row"><input type="text" data-f="customerName" placeholder="Customer name" autocomplete="off"></div>
         <div id="je-clients"></div>
         <div class="row"><input type="tel" data-f="phone" placeholder="Phone" autocomplete="tel"></div>
+        <div class="row"><input type="email" data-f="email" placeholder="Email" autocomplete="email" autocapitalize="off" spellcheck="false"></div>
         <div class="row" id="je-client-linked"><span>👤 Saved client</span><button type="button" class="minilink" id="je-unlink">Unlink</button></div>
         <div class="row" id="je-saveclient-row"><span>Save as a client</span><label class="sw"><input type="checkbox" data-f="saveClient"><span></span></label></div></div>
       <div class="sf" id="je-client-sf">Start typing a saved client's name to fill in their details.</div>
@@ -1709,9 +1713,9 @@ a { color: var(--link); text-decoration: none; }
     body.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { f.pricing = b.dataset.pv; update(); });
     body.querySelector('#je-unlink').onclick = () => { f.clientId = null; update(); };
     function pickClient(c) {
-      f.clientId = c.id; f.customerName = c.name; f.phone = c.phone || ''; f.address = c.address || ''; f.saveClient = false;
+      f.clientId = c.id; f.customerName = c.name; f.phone = c.phone || ''; f.email = c.email || ''; f.address = c.address || ''; f.saveClient = false;
       location = LocationEditing.load(c);
-      ['customerName', 'phone', 'address'].forEach(k => { body.querySelector(`[data-f=${k}]`).value = f[k]; });
+      ['customerName', 'phone', 'email', 'address'].forEach(k => { body.querySelector(`[data-f=${k}]`).value = f[k]; });
       update();
     }
     function renderClientBits() {
@@ -1719,7 +1723,7 @@ a { color: var(--link); text-decoration: none; }
       const q = f.customerName.trim().toLowerCase();
       const matches = !f.clientId && q ? S.clients.filter(c => c.name.toLowerCase().includes(q) || (c.phone || '').replace(/\s/g, '').includes(q.replace(/\s/g, ''))).slice(0, 4) : [];
       box.innerHTML = matches.map(c => `<button type="button" class="row tap clientsugg" data-pick="${esc(c.id)}"><div style="min-width:0;text-align:left"><div>👤 ${esc(c.name)}</div>
-        <div class="hint">${esc([c.phone, c.address].filter(Boolean).join(' · ') || 'No phone or address saved')}</div></div><span class="hint">Use</span></button>`).join('');
+        <div class="hint">${esc([c.phone, c.email, c.address].filter(Boolean).join(' · ') || 'No contact details saved')}</div></div><span class="hint">Use</span></button>`).join('');
       box.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => pickClient(clientById(b.dataset.pick)));
       const exists = S.clients.some(c => c.name.trim().toLowerCase() === q);
       body.querySelector('#je-client-linked').style.display = f.clientId ? '' : 'none';
@@ -1894,6 +1898,7 @@ a { color: var(--link); text-decoration: none; }
       if (f.status !== 'Completed') target.completedAt = null;
       target.status = f.status;
       target.phone = f.phone.trim();
+      target.email = f.email.trim();
       LocationEditing.apply(location, f.address, target);   // chosen location saved with precision; hand edits clear it
       target.notes = f.notes.trim();
       target.collectionDate = f.hasCollect ? f.collect : null;
@@ -1923,7 +1928,7 @@ a { color: var(--link); text-decoration: none; }
       target.ratePence = Math.max(0, Money.parsePence(f.rate));
       target.pricing = f.pricing === 'hourly' ? 'hourly' : 'fixed';
       if (!f.clientId && f.saveClient && target.customerName) {
-        const c = { id: uid(), name: target.customerName, phone: target.phone || '', address: target.address || '', notes: '', createdAt: Date.now(),
+        const c = { id: uid(), name: target.customerName, phone: target.phone || '', email: target.email || '', address: target.address || '', notes: '', createdAt: Date.now(),
                     latitude: target.latitude, longitude: target.longitude, locationPrecision: target.locationPrecision, locationPinMoved: !!target.locationPinMoved };
         S.clients.push(c);
         f.clientId = c.id;
@@ -2321,7 +2326,8 @@ a { color: var(--link); text-decoration: none; }
       if (!isObj(j) || !isStr(j.id) || !j.id || !isStr(j.customerName) || !isStr(j.jobDescription) || !STATUSES.includes(j.status)
           || !isWholeOrNull(j.ratePence) || !isWholeOrNull(j.quotePence) || !isWholeOrNull(j.depositPence)
           || !(j.pricing === undefined || j.pricing === 'fixed' || j.pricing === 'hourly')
-          || !(j.number === undefined || (Number.isInteger(j.number) && j.number > 0)))
+          || !(j.number === undefined || (Number.isInteger(j.number) && j.number > 0))
+          || !(j.email === undefined || isStr(j.email)))
         return `job ${i + 1} is damaged`;
     }
     for (let i = 0; i < logs.length; i++) {
@@ -2338,7 +2344,7 @@ a { color: var(--link); text-decoration: none; }
       if (!Array.isArray(clients)) return 'its clients are damaged';
       for (let i = 0; i < clients.length; i++) {
         const c = clients[i];
-        if (!isObj(c) || !isStr(c.id) || !c.id || !isStr(c.name) || !(c.phone === undefined || isStr(c.phone)) || !(c.address === undefined || isStr(c.address)))
+        if (!isObj(c) || !isStr(c.id) || !c.id || !isStr(c.name) || !(c.phone === undefined || isStr(c.phone)) || !(c.address === undefined || isStr(c.address)) || !(c.email === undefined || isStr(c.email)))
           return `client ${i + 1} is damaged`;
       }
     }
@@ -2492,7 +2498,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">23 Sep 2026, 19:18</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">23 Sep 2026, 20:20</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
@@ -2635,7 +2641,7 @@ a { color: var(--link); text-decoration: none; }
       let c = S.clients.find(x => normName(x.name) === key);
       if (!c) {
         const latest = [...jobs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
-        c = { id: uid(), name: latest.customerName.trim(), phone: latest.phone || '', address: latest.address || '', notes: '', createdAt: Date.now(),
+        c = { id: uid(), name: latest.customerName.trim(), phone: latest.phone || '', email: (jobs.find(x => x.email) || {}).email || '', address: latest.address || '', notes: '', createdAt: Date.now(),
               latitude: latest.latitude, longitude: latest.longitude, locationPrecision: latest.locationPrecision, locationPinMoved: !!latest.locationPinMoved };
         S.clients.push(c); created++;
       }
@@ -2656,7 +2662,7 @@ a { color: var(--link); text-decoration: none; }
       const body = ov.querySelector('#cl');
       const unlinked = unlinkedCustomers();
       const list = [...S.clients].sort((a, b) => a.name.localeCompare(b.name))
-        .filter(c => !q || normName(c.name).includes(q) || (c.phone || '').replace(/\s/g, '').includes(q.replace(/\s/g, '')));
+        .filter(c => !q || normName(c.name).includes(q) || (c.email || '').toLowerCase().includes(q) || (c.phone || '').replace(/\s/g, '').includes(q.replace(/\s/g, '')));
       body.innerHTML = `
         ${S.clients.length ? `<div class="search" style="margin-top:8px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="cl-q" placeholder="Search clients" value="${esc(q)}"></div>` : ''}
         <div class="group" style="margin-top:12px">${list.length ? list.map(c => { const st = clientStats(c); return `<div class="row tap chev" data-c="${esc(c.id)}"><div style="min-width:0">
@@ -2684,7 +2690,7 @@ a { color: var(--link); text-decoration: none; }
       const c = clientById(id);
       if (!c) { closeOverlay(ov); return; }
       const st = clientStats(c);
-      const tel = phoneUrl(c.phone);
+      const tel = phoneUrl(c.phone), mail = emailUrl(c.email);
       const jobs = [...st.jobs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       const info = forecastInfo();
       ov.querySelector('.title').textContent = c.name;
@@ -2693,6 +2699,7 @@ a { color: var(--link); text-decoration: none; }
           <div class="hint" style="margin-top:4px">${st.jobs.length} ${st.jobs.length === 1 ? 'job' : 'jobs'} · spent ${esc(fmt(st.spent))}${st.last ? ' · last ' + esc(sheetDate(st.last)) : ''}</div></div></div>
         <div class="group" style="margin-top:12px">
           <div class="row"><span>Phone</span>${tel ? `<a class="v" href="${esc(tel)}" style="color:var(--link)">${esc(c.phone)}</a>` : '<span class="v">—</span>'}</div>
+          <div class="row"><span>Email</span>${mail ? `<a class="v" href="${esc(mail)}" style="color:var(--link)">${esc(c.email)}</a>` : `<span class="v">${c.email ? esc(c.email) : '—'}</span>`}</div>
           <div class="row"><span>Address</span><span class="v" style="text-align:right">${c.address ? esc(c.address) : '—'}</span></div>
           ${c.notes ? `<div class="row" style="display:block"><div class="hint">Notes</div><div style="white-space:pre-wrap;margin-top:4px">${esc(c.notes)}</div></div>` : ''}
         </div>
@@ -2712,7 +2719,7 @@ a { color: var(--link); text-decoration: none; }
   function openClientEditor(id) {
     const existing = id ? clientById(id) : null;
     const ov = pushOverlay('sheet');
-    const f = { name: existing ? existing.name : '', phone: existing ? existing.phone || '' : '', address: existing ? existing.address || '' : '', notes: existing ? existing.notes || '' : '' };
+    const f = { name: existing ? existing.name : '', phone: existing ? existing.phone || '' : '', email: existing ? existing.email || '' : '', address: existing ? existing.address || '' : '', notes: existing ? existing.notes || '' : '' };
     let location = existing ? LocationEditing.load(existing) : null;
     ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-cancel>Cancel</button><div class="title">${existing ? 'Edit client' : 'New client'}</div>
       <button class="linkbtn bold r" data-save>Save</button></div><div class="body" id="ce"></div>`;
@@ -2720,7 +2727,8 @@ a { color: var(--link); text-decoration: none; }
     body.innerHTML = `
       <div class="sh">Client</div><div class="group">
         <div class="row"><input type="text" data-c="name" placeholder="Name" autocomplete="off"></div>
-        <div class="row"><input type="tel" data-c="phone" placeholder="Phone" autocomplete="tel"></div></div>
+        <div class="row"><input type="tel" data-c="phone" placeholder="Phone" autocomplete="tel"></div>
+        <div class="row"><input type="email" data-c="email" placeholder="Email" autocomplete="email" autocapitalize="off" spellcheck="false"></div></div>
       <div class="sh">Address</div><div class="group">
         <div class="row"><textarea data-c="address" placeholder="Address" rows="2"></textarea></div>
         <div class="row btnrow tap" id="ce-find">🔍 Find address</div></div>
@@ -2747,7 +2755,7 @@ a { color: var(--link); text-decoration: none; }
       const dupe = S.clients.find(c => c.id !== id && normName(c.name) === normName(f.name));
       if (dupe) { toast(`You already have a client called ${dupe.name}.`); return; }
       const c = existing || { id: uid(), createdAt: Date.now() };
-      c.name = f.name.trim(); c.phone = f.phone.trim(); c.notes = f.notes.trim();
+      c.name = f.name.trim(); c.phone = f.phone.trim(); c.email = f.email.trim(); c.notes = f.notes.trim();
       LocationEditing.apply(location, f.address.trim(), c);
       if (!existing) S.clients.push(c);
       saveAll(); closeOverlay(ov); refreshAll(); renderAccount();
@@ -3260,7 +3268,7 @@ a { color: var(--link); text-decoration: none; }
     // Customer details
     const LW = 112, dash = '—';
     const info = [
-      ['Status', job.status], ['Phone', job.phone || dash], ['Address', job.address || dash],
+      ['Status', statusLabel(job.status)], ['Phone', job.phone || dash], ['Email', job.email || dash], ['Address', job.address || dash],
       ...(hasDeposit(job) ? [['Deposit paid', moneyPdf(job.depositPence) + (job.depositDate ? ' on ' + longDay(job.depositDate) : '')],
                              ...(balanceOf(job) !== null ? [['Balance to pay', moneyPdf(balanceOf(job))]] : [])] : []),
       ...(job.meetingDate ? [['Meeting', longWhen(job, 'meetingDate') + (job.meetingNote ? ' – ' + job.meetingNote : '')]] : []),
@@ -3433,6 +3441,7 @@ a { color: var(--link); text-decoration: none; }
         <table class="ps-table ps-info">
           <tr><th>Status</th><td><b>${esc(job.status)}</b></td></tr>
           <tr><th>Phone</th><td>${job.phone ? esc(job.phone) : dash}</td></tr>
+          <tr><th>Email</th><td>${job.email ? esc(job.email) : dash}</td></tr>
           <tr><th>Address</th><td>${job.address ? esc(job.address) : dash}</td></tr>
           ${hasDeposit(job) ? `<tr><th>Deposit paid</th><td>${esc(fmt(job.depositPence))}${job.depositDate ? ' on ' + esc(longDay(job.depositDate)) : ''}</td></tr>
             ${balanceOf(job) !== null ? `<tr><th>Balance to pay</th><td><b>${esc(fmt(balanceOf(job)))}</b></td></tr>` : ''}` : ''}
