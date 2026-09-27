@@ -386,6 +386,22 @@ a { color: var(--link); text-decoration: none; }
 .jno { color: var(--sub); font-weight: 600; margin-right: 6px; font-variant-numeric: tabular-nums; }
 .sh.jhead { margin-top: 6px; }
 
+/* "More details" / "More stats" toggles */
+.moretoggle { width: 100%; border: 0; background: none; font: inherit; color: var(--text); display: flex; justify-content: space-between; align-items: center; text-align: left; cursor: pointer; }
+.moretoggle .morechev { color: var(--faint); font-size: 26px; line-height: 1; transition: transform .2s; }
+.moretoggle.open .morechev { transform: rotate(90deg); }
+
+/* Quick guide */
+.guide { padding: 36px 28px 30px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.gicon { font-size: 64px; line-height: 1; margin-bottom: 18px; }
+.gtitle { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+.gtext { font-size: 16px; color: var(--sub); line-height: 1.5; max-width: 360px; }
+.gdots { display: flex; gap: 8px; margin: 26px 0 22px; }
+.gdots span { width: 8px; height: 8px; border-radius: 4px; background: var(--fill2); }
+.gdots span.on { background: var(--accent); width: 22px; }
+.gnext { width: 100%; max-width: 340px; }
+.gback { margin-top: 12px; }
+
 </style>
 </head>
 <body>
@@ -954,6 +970,8 @@ a { color: var(--link); text-decoration: none; }
 
   // ---------- Storage (separate keys, so the older web app's data is never touched) ----------
   const K = { jobs: 'tm3.jobs', logs: 'tm3.logs', settings: 'tm3.settings', shift: 'tm3.shift', clients: 'tm3.clients' };
+  const prefOpen = k => { try { return localStorage.getItem(k) === '1'; } catch (e) { return false; } };
+  const setPrefOpen = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch (e) { /* ignore */ } };
   const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } };
   // Returns true/false so callers can tell whether the save actually happened
   // (storage full, private browsing blocking storage, etc. throw here).
@@ -1345,10 +1363,12 @@ a { color: var(--link); text-decoration: none; }
     j[doneField(f) + 'At'] = done ? (atMs || Date.now()) : null;
     saveAll(); refreshAll();
     const k = kindOf(j, f);
-    toast(done ? `${k.done}: ${j.customerName}` : `${k.done} mark removed`);
+    toast(done ? `${k.done}: ${j.customerName} at ${hhmm(j[doneField(f) + 'At'])}` : `${k.done} mark removed`);
   }
   // Card / Coming up: ask when, then mark done
-  function markDone(jobId, f) {
+  // One tap: marks it done now. "Change" on the card lets you pick the booked time or another time.
+  function markDone(jobId, f) { setDone(jobId, f, true, Date.now()); }
+  function changeDoneTime(jobId, f) {
     const j = jobById(jobId); if (!j) return;
     chooseDoneTime(kindOf(j, f), j[f], timeOf(j, f), ms => setDone(jobId, f, true, ms));
   }
@@ -1377,7 +1397,7 @@ a { color: var(--link); text-decoration: none; }
       if (isDone(j, f)) {
         const dp = doneParts(j, f);
         return `<div class="daterow" style="color:var(--green-t)">✅ ${k.done}: <b>${esc(dp.actual)}</b>${dp.booked ? ` <span style="color:var(--sub)">(booked ${esc(dp.booked)})</span>` : ''}
-          <button type="button" class="minilink" data-undone="${esc(j.id)}" data-f="${f}">Undo</button></div>`;
+          <button type="button" class="minilink" data-dtime="${esc(j.id)}" data-f="${f}">Change</button><button type="button" class="minilink" data-undone="${esc(j.id)}" data-f="${f}">Undo</button></div>`;
       }
       const open = j.status !== 'Completed' && j.status !== 'Declined', diff = dayDiff(j[f]);
       return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${k.icon} ${k.card || k.short}: <b>${esc(shortWhen(j, f))}</b>${open ? ' · ' + whenLabel(diff) : ''}${f === 'meetingDate' && j.meetingNote ? ` <span class="muted">(${esc(j.meetingNote)})</span>` : ''}
@@ -1403,7 +1423,7 @@ a { color: var(--link); text-decoration: none; }
     box.querySelectorAll('[data-ev]').forEach(r => r.onclick = () => {
       const e = ev[+r.dataset.ev];
       actionSheet(`${e.k.short} · ${e.j.customerName}`, `${shortWhen(e.j, e.f)} · ${whenLabel(e.diff)}`, [
-        { label: '✓ ' + e.k.mark, action: () => setTimeout(() => markDone(e.j.id, e.f), 250) },
+        { label: '✓ ' + e.k.mark, action: () => markDone(e.j.id, e.f) },
         { label: 'Open job', action: () => jumpToJob(e.j.id) },
         { label: 'Cancel', role: 'cancel' }]);
     });
@@ -1630,6 +1650,7 @@ a { color: var(--link); text-decoration: none; }
     box.querySelectorAll('[data-cal]').forEach(b => b.onclick = () => addToCalendar(b.dataset.cal, b.dataset.f));
     box.querySelectorAll('[data-done]').forEach(b => b.onclick = () => markDone(b.dataset.done, b.dataset.f));
     box.querySelectorAll('[data-undone]').forEach(b => b.onclick = () => setDone(b.dataset.undone, b.dataset.f, false));
+    box.querySelectorAll('[data-dtime]').forEach(b => b.onclick = () => changeDoneTime(b.dataset.dtime, b.dataset.f));
   }
   function requestDeleteJob(job) {
     if (S.shift.isRunning && S.shift.jobID === job.id) { actionSheet("Can't delete", 'Stop the timer before deleting this job.', [{ label: 'OK', role: 'cancel' }]); return; }
@@ -1691,20 +1712,24 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Job</div><div class="group">
         <div class="row"><textarea data-f="jobDescription" placeholder="Job / item description" rows="2" style="min-height:44px"></textarea></div>
         <div class="row"><span>Status</span><select data-f="status" style="width:auto"><option>Enquiry</option><option>New</option><option>In Progress</option><option>Completed</option><option value="Declined">Not going ahead</option></select></div>
-        <div class="row"><span>Pricing</span><div class="seg segmini" style="max-width:62%" role="radiogroup"><button type="button" data-pv="fixed">Fixed price</button><button type="button" data-pv="hourly">Hourly</button></div></div>
         <div class="row"><span id="je-quote-lbl">Quoted price</span><input class="inp right" inputmode="decimal" data-f="quote" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div></div>
+      <div class="sh">Dates</div><div id="je-dates"></div>
+      <div class="sf">Add the dates this job needs. Mark each one done once it has happened.</div>
+      <div class="group" style="margin-top:22px"><button type="button" class="row tap moretoggle" id="je-more-btn" aria-expanded="false">
+        <span><b>More details</b><span class="hint" style="display:block">Pricing, deposit, address, notes, photos</span></span><span class="morechev">›</span></button></div>
+      <div id="je-more" style="display:none">
+      <div class="sh">Pricing</div><div class="group">
+        <div class="row"><span>Pricing</span><div class="seg segmini" style="max-width:62%" role="radiogroup"><button type="button" data-pv="fixed">Fixed price</button><button type="button" data-pv="hourly">Hourly</button></div></div>
+
+        <div class="row"><span>Labour rate per hour</span><input class="inp right" inputmode="decimal" data-f="rate" style="max-width:40%"></div>
+        <div class="row" id="je-cover" style="display:none"><span>Quote covers</span><span class="v num" id="je-covers"></span></div></div>
+      <div class="sf">Used for this job's time allowance and for new time logged to it. Changing it never alters time already logged, and changing your default rate never alters this job.</div>
       <div class="sh">Deposit</div><div class="group">
         <div class="row"><span>Deposit paid</span><input class="inp right" inputmode="decimal" data-f="deposit" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div>
         <div class="row" id="je-dep-date-row"><span>Paid on</span><input type="date" data-f="depositDate" style="width:auto"></div>
         <div class="row" id="je-balance-row"><span>Balance to pay</span><b class="num" id="je-balance"></b></div>
         <div class="row" id="je-dep-warn" style="color:var(--orange-t)">⚠️ The deposit is more than the quoted price.</div></div>
       <div class="sf">Leave empty if no deposit has been paid.</div>
-      <div class="group" style="margin-top:20px">
-        <div class="row"><span>Labour rate per hour</span><input class="inp right" inputmode="decimal" data-f="rate" style="max-width:40%"></div>
-        <div class="row" id="je-cover" style="display:none"><span>Quote covers</span><span class="v num" id="je-covers"></span></div></div>
-      <div class="sf">Used for this job's time allowance and for new time logged to it. Changing it never alters time already logged, and changing your default rate never alters this job.</div>
-      <div class="sh">Dates</div><div id="je-dates"></div>
-      <div class="sf">Add the dates this job needs. Mark each one done once it has happened.</div>
       <div class="sh">Address</div><div class="group" id="je-addr">
         <div class="row"><textarea data-f="address" placeholder="Address" rows="2" style="min-height:44px"></textarea></div>
         <div class="row btnrow tap" id="je-find"></div>
@@ -1716,6 +1741,7 @@ a { color: var(--link); text-decoration: none; }
         <div class="row" style="display:block"><div class="phhead"><b>Before</b><span class="hint" id="je-ph-before-n"></span></div><div class="phgrid" id="je-ph-before"></div></div>
         <div class="row" style="display:block"><div class="phhead"><b>After</b><span class="hint" id="je-ph-after-n"></span></div><div class="phgrid" id="je-ph-after"></div></div></div>
       <div class="sf">Up to ${PHOTO_LIMIT} before and ${PHOTO_LIMIT} after photos. Tap a photo to see it full screen.</div>
+      </div>
       <input type="file" accept="image/*" multiple id="je-file" style="display:none">
       <div id="je-budget"></div>`;
 
@@ -1731,11 +1757,20 @@ a { color: var(--link); text-decoration: none; }
     });
 
     body.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { f.pricing = b.dataset.pv; update(); });
+    // "More details": opens by itself when this job already uses any of those fields, so nothing is hidden;
+    // otherwise it remembers whether you like it open.
+    const moreBox = body.querySelector('#je-more'), moreBtn = body.querySelector('#je-more-btn');
+    const setMore = (open, remember) => { moreBox.style.display = open ? '' : 'none'; moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); moreBtn.classList.toggle('open', open); if (remember) setPrefOpen('tm3.jobMoreOpen', open); };
+    const usesMore = () => (job && (Income.pricing(job) === 'hourly' || (job.depositPence > 0) || photoCount(job.id) > 0 || (job.ratePence !== undefined && job.ratePence !== S.settings.ratePence)))
+      || !!(f.address && f.address.trim()) || !!(f.notes && f.notes.trim());
+    setMore(prefOpen('tm3.jobMoreOpen') || usesMore(), false);
+    moreBtn.onclick = () => setMore(moreBox.style.display === 'none', true);
     body.querySelector('#je-unlink').onclick = () => { f.clientId = null; update(); };
     function pickClient(c) {
       f.clientId = c.id; f.customerName = c.name; f.phone = c.phone || ''; f.email = c.email || ''; f.address = c.address || ''; f.saveClient = false;
       location = LocationEditing.load(c);
       ['customerName', 'phone', 'email', 'address'].forEach(k => { body.querySelector(`[data-f=${k}]`).value = f[k]; });
+      if (f.address) setMore(true, false);
       update();
     }
     function renderClientBits() {
@@ -1814,7 +1849,7 @@ a { color: var(--link); text-decoration: none; }
       box.querySelectorAll('[data-ddone]').forEach(b => b.onclick = () => {
         const c = DATE_CARDS.find(x => x.done === b.dataset.ddone);
         if (f[c.done]) { f[c.done] = false; f[c.doneAt] = null; renderDates(); return; }   // un-mark straight away
-        chooseDoneTime(c.kind(), f[c.date], f[c.time], ms => { f[c.done] = true; f[c.doneAt] = ms; renderDates(); });
+        f[c.done] = true; f[c.doneAt] = Date.now(); renderDates();   // done now; the time can be changed from the job card
       });
       box.querySelectorAll('[data-dremove]').forEach(b => b.onclick = () => { f[b.dataset.dremove] = false; renderDates(); });
       box.querySelectorAll('[data-dadd]').forEach(b => b.onclick = () => {
@@ -2482,6 +2517,37 @@ a { color: var(--link); text-decoration: none; }
   }
 
 
+
+  // =========================================================================================
+  // QUICK GUIDE — three steps, shown on first launch; reopen from Account
+  // =========================================================================================
+  const GUIDE = [
+    { icon: '💼', title: 'Add your jobs', text: 'Tap + on the Jobs tab. Add the customer, what the job is and your price. Everything else is optional: tap More details when you need it.' },
+    { icon: '⏱️', title: 'Time your work', text: 'On the Timer, pick a job and press Start. Press Stop when you finish, and the time is saved to that job. Your earnings and income forecast update by themselves.' },
+    { icon: '🔒', title: 'Your data stays on this device', text: "Jobs, time logs, settings and photos are saved only in this browser on this device and don't sync to your other devices. If you clear Safari's data, reset this device, or switch phones, everything here is lost unless you've exported a backup (Account → Export backup). Two things do go online: when you use Find address, what you type is sent to free map services (OpenStreetMap, Photon and postcodes.io) to look it up, and the map loads from OpenStreetMap and Esri." }
+  ];
+  function openGuide() {
+    const ov = pushOverlay('sheet');
+    let i = 0;
+    const done = () => closeOverlay(ov);
+    function render() {
+      const g = GUIDE[i], last = i === GUIDE.length - 1;
+      ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-guide-skip>${last ? '' : 'Skip'}</button><div class="title">Quick guide</div><span></span></div>
+        <div class="body"><div class="guide">
+          <div class="gicon">${g.icon}</div>
+          <div class="gtitle">${esc(g.title)}</div>
+          <div class="gtext">${esc(g.text)}</div>
+          <div class="gdots">${GUIDE.map((_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>
+          <button type="button" class="btn prim gnext" data-guide-next>${last ? 'Got it' : 'Next'}</button>
+          ${i > 0 ? '<button type="button" class="linkbtn gback" data-guide-back>Back</button>' : ''}
+        </div></div>`;
+      ov.querySelector('[data-guide-skip]').onclick = done;
+      ov.querySelector('[data-guide-next]').onclick = () => { if (last) done(); else { i++; render(); } };
+      const back = ov.querySelector('[data-guide-back]'); if (back) back.onclick = () => { i--; render(); };
+    }
+    render();
+  }
+
   // =========================================================================================
   // ACCOUNT TAB (AccountView.swift)
   // =========================================================================================
@@ -2518,14 +2584,16 @@ a { color: var(--link); text-decoration: none; }
       <div class="sf">A new rate applies to new jobs and new time only. Existing jobs and past logs keep their rates.</div>
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
+      <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span>📘 Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 19:53</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 20:11</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
     $('ac-logs').onclick = () => openTimeLogs({ type: 'all' });
     $('ac-fore').onclick = openForecast;
     $('ac-clients').onclick = openClients;
+    $('ac-guide').onclick = openGuide;
     $('ac-add').onclick = () => openLogEditor(null, { type: 'all' });
     $('ac-export').onclick = () => { exportBackup(); };
     $('ac-restore').onclick = () => { $('ac-restore-file').value = ''; $('ac-restore-file').click(); };
@@ -2579,6 +2647,11 @@ a { color: var(--link); text-decoration: none; }
       const job = filter.type === 'job' ? jobById(filter.id) : null;
       const totals = Reporting.jobTotals(entries);
       const inc = Income.period(S.jobs, forecastInfo(), iv, filter);   // real income: completed jobs in this period
+      const moreStats = prefOpen('tm3.earnMoreOpen');
+      const completedRows = inc.rows.length ? inc.rows.map(r => `<div class="row tap" data-job="${esc(r.job.id)}"><div style="min-width:0"><div>${esc(r.job.customerName)}</div>
+          <div class="hint">${esc(r.job.jobDescription)} · ${Income.pricing(r.job) === 'hourly' ? 'hourly' : 'fixed price'} · ${Duration.decimalHours(r.workedSeconds)} hrs${r.effectiveRatePence !== null ? ' · ' + esc(fmt(r.effectiveRatePence)) + '/hr' : ''}</div></div>
+          ${r.pence === null ? '<span class="pill orange">No price</span>' : `<b class="num">${fmt(r.pence)}</b>`}</div>`).join('')
+          : '<div class="row hint">No jobs completed in this period.</div>';
       let chart = '';
       if (iv && period !== 'day' && entries.length) {
         const days = Reporting.dailyTotals(entries, iv);
@@ -2599,29 +2672,32 @@ a { color: var(--link); text-decoration: none; }
         ${chart}
         <div class="sh">Statistics</div><div class="group">
           <div class="row"><span>Hours worked</span><span class="v num">${Duration.decimalHours(s.workedSeconds)}</span></div>
+          <div class="row"><div><div>Effective hourly rate</div><div class="hint">${inc.pricedSeconds > 0 ? `${esc(fmt(inc.totalPence))} ÷ ${Duration.decimalHours(inc.pricedSeconds)} hrs on these jobs` : 'Income ÷ hours spent on those jobs'}</div></div><span class="v num">${inc.effectiveRatePence === null ? '—' : fmt(inc.effectiveRatePence) + '/hr'}</span></div></div>
+        <div class="sh">Completed jobs</div><div class="group">${completedRows}</div>
+        ${job ? `<div class="sh">Quote vs actual (all time)</div><div class="group">${budgetRows(Reporting.budget(job.quotePence, all.filter(e => e.jobID === job.id), job.ratePence))}</div>` : ''}
+        <div class="group" style="margin-top:22px"><button type="button" class="row tap moretoggle ${moreStats ? 'open' : ''}" id="ea-more-btn" aria-expanded="${moreStats}">
+          <span><b>More stats</b><span class="hint" style="display:block">Billable hours, breaks, earnings per hour worked, time value…</span></span><span class="morechev">›</span></button></div>
+        <div id="ea-more" style="display:${moreStats ? '' : 'none'}">
+        <div class="sh">More statistics</div><div class="group">
           <div class="row"><span>Billable hours</span><span class="v num">${Duration.decimalHours(s.billableSeconds)}</span></div>
           <div class="row"><span>Non-billable (General)</span><span class="v num">${Duration.decimalHours(s.nonBillableSeconds)}</span></div>
           <div class="row"><span>Break time</span><span class="v num">${Duration.short(s.breakSeconds)}</span></div>
           <div class="row"><span>Average per working day</span><span class="v num">${s.averageSecondsPerActiveDay === null ? '—' : Duration.decimalHours(s.averageSecondsPerActiveDay) + ' hrs'}</span></div>
-          <div class="row"><div><div>Effective hourly rate</div><div class="hint">${inc.pricedSeconds > 0 ? `${esc(fmt(inc.totalPence))} ÷ ${Duration.decimalHours(inc.pricedSeconds)} hrs on these jobs` : 'Income ÷ hours spent on those jobs'}</div></div><span class="v num">${inc.effectiveRatePence === null ? '—' : fmt(inc.effectiveRatePence) + '/hr'}</span></div>
           <div class="row"><div><div>Earnings per hour worked</div><div class="hint">${s.workedSeconds > 0 ? `${esc(fmt(inc.totalPence))} ÷ ${Duration.decimalHours(s.workedSeconds)} hrs worked, General included` : 'Income ÷ all hours worked'} · best on Month or All</div></div><span class="v num">${Income.rate(inc.totalPence, s.workedSeconds) === null ? '—' : fmt(Income.rate(inc.totalPence, s.workedSeconds)) + '/hr'}</span></div>
           <div class="row"><span>Longest entry</span><span class="v num">${Duration.short(s.longestShiftSeconds)}</span></div>
           <div class="row"><div><div>Time value</div><div class="hint">Hours worked × hourly rate (effort, not income)</div></div><span class="v num">${fmt(s.earningsPence)}</span></div></div>
-        <div class="sh">Completed jobs</div><div class="group">${inc.rows.length ? inc.rows.map(r => `<div class="row tap" data-job="${esc(r.job.id)}"><div style="min-width:0"><div>${esc(r.job.customerName)}</div>
-          <div class="hint">${esc(r.job.jobDescription)} · ${Income.pricing(r.job) === 'hourly' ? 'hourly' : 'fixed price'} · ${Duration.decimalHours(r.workedSeconds)} hrs${r.effectiveRatePence !== null ? ' · ' + esc(fmt(r.effectiveRatePence)) + '/hr' : ''}</div></div>
-          ${r.pence === null ? '<span class="pill orange">No price</span>' : `<b class="num">${fmt(r.pence)}</b>`}</div>`).join('')
-          : '<div class="row hint">No jobs completed in this period.</div>'}</div>
-        ${job ? `<div class="sh">Quote vs actual (all time)</div><div class="group">${budgetRows(Reporting.budget(job.quotePence, all.filter(e => e.jobID === job.id), job.ratePence))}</div>` : ''}
         <div class="sh">Time by customer</div><div class="group">${totals.length ? totals.map(t => `<div class="row"><div><div>${esc(t.name)}</div>
           <div class="hint">${t.shiftCount} ${t.shiftCount === 1 ? 'entry' : 'entries'} · ${t.isBillable ? 'time value ' + esc(fmt(t.earningsPence)) : 'non-billable'}</div></div>
           <span class="num">${Duration.decimalHours(t.workedSeconds)} hrs</span></div>`).join('')
           : '<div class="row hint">No time logged in this period.</div>'}</div>
-        <div class="sf">Income counts fixed-price jobs at their quoted price and hourly jobs at time × rate, in the period they were completed (the same rule as the Income forecast). Time value is what your hours would be worth at your hourly rate.</div>`;
+        <div class="sf">Income counts fixed-price jobs at their quoted price and hourly jobs at time × rate, in the period they were completed (the same rule as the Income forecast). Time value is what your hours would be worth at your hourly rate.</div>
+        </div>`;
       const body = ov.querySelector('#ea');
       body.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { period = b.dataset.p; render(); });
       body.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { anchor = Period.shifted(period, anchor, +b.dataset.n); render(); });
       const fs = body.querySelector('#ea-f'); fs.value = Filter.key(filter); fs.onchange = () => { filter = Filter.parse(fs.value); render(); };
       body.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobEditor(r.dataset.job));
+      body.querySelector('#ea-more-btn').onclick = () => { setPrefOpen('tm3.earnMoreOpen', !prefOpen('tm3.earnMoreOpen')); const y = body.scrollTop; render(); body.scrollTop = y; };
     }
     ov.refresh = render;
     render();
@@ -3534,12 +3610,11 @@ a { color: var(--link); text-decoration: none; }
   loadPhotos().then(() => { renderJobList(); renderAccount(); });   // Account shows photo storage, so redraw it once photos have loaded
   setInterval(renderTimerDynamic, 1000);
   if (!S.settings.privacyNoticeSeen) {
-    // Marked and saved immediately (not on dismissal), so a reload before tapping "Got it" can't bring it back.
+    // First launch: the quick guide (its last step is the privacy notice). Marked as seen straight
+    // away, so a reload part-way through can't bring it back; it can be reopened from Account.
     S.settings.privacyNoticeSeen = true;
     saveAll();
-    setTimeout(() => actionSheet('Your data stays on this device',
-      "Jobs, time logs, settings and photos are saved only in this browser on this device and don't sync to your other devices. If you clear Safari's data, reset this device, or switch phones, everything here is lost unless you've exported a backup (Account → Export backup). Two things do go online: when you use Find address, what you type is sent to free map services (OpenStreetMap, Photon and postcodes.io) to look it up, and the map loads from OpenStreetMap and Esri.",
-      [{ label: 'Got it', role: 'cancel' }]), 400);
+    setTimeout(openGuide, 400);
   }
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) { renderTimerDynamic(); return; }
