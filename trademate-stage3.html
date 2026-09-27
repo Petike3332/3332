@@ -983,7 +983,15 @@ a { color: var(--link); text-decoration: none; }
   const cur = () => S.settings.currency;
   const fmt = p => Money.format(p, cur());
   const clientById = id => S.clients.find(c => c.id === id) || null;
-  const jobById = id => (id ? S.jobs.find(j => j.id === id) : null) || null;
+  // Fast lookup by id. The index is rebuilt whenever the jobs list is replaced or changes length
+  // (add / delete / restore); edits to a job change the same object, so the index stays valid.
+  let jobIdx = null, jobIdxArr = null, jobIdxLen = -1;
+  const jobById = id => {
+    if (!id) return null;
+    if (jobIdxArr !== S.jobs || jobIdxLen !== S.jobs.length) { jobIdx = new Map(S.jobs.map(j => [j.id, j])); jobIdxArr = S.jobs; jobIdxLen = S.jobs.length; }
+    const j = jobIdx.get(id);
+    return j && S.jobs.includes(j) ? j : (S.jobs.find(x => x.id === id) || null);
+  };
   const displayName = l => { const j = jobById(l.jobId); return j ? j.customerName : l.customerNameSnapshot; };
   const entryOf = l => ({ id: l.id, jobID: jobById(l.jobId) ? l.jobId : null, jobName: displayName(l), start: l.start,
     workedSeconds: l.workedSeconds, breakSeconds: l.breakSeconds, ratePence: l.ratePence, isBillable: l.isBillable });
@@ -1946,8 +1954,9 @@ a { color: var(--link); text-decoration: none; }
       if (!(f.customerName.trim() && f.jobDescription.trim())) return;
       // Non-blank text that doesn't parse as an amount is refused rather than silently
       // dropped to £0.00 or "no quote" — the person gets a chance to fix a typo.
-      const badQuote = f.quote.trim() !== '' && Money.parsePence(f.quote) === null;
-      const badDeposit = f.deposit.trim() !== '' && Money.parsePence(f.deposit) === null;
+      const qv = Money.parsePence(f.quote), dv = Money.parsePence(f.deposit);
+      const badQuote = f.quote.trim() !== '' && (qv === null || qv < 0);       // negative amounts are refused too,
+      const badDeposit = f.deposit.trim() !== '' && (dv === null || dv < 0);   // not quietly dropped
       const rateVal = Money.parsePence(f.rate);
       const badRate = f.rate.trim() === '' || rateVal === null || rateVal < 0;
       if (badQuote) { toast('Enter a valid quoted price, or leave it blank.'); return; }
@@ -2501,7 +2510,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 18:59</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 19:24</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
@@ -2617,8 +2626,8 @@ a { color: var(--link); text-decoration: none; }
   // A job keeps its own copy of name/phone/address (so old job sheets stay as they were); job.clientId
   // links it to the client for their history. Editing a client changes new jobs only.
   const normName = n => String(n || '').trim().replace(/\s+/g, ' ').toLowerCase();
-  function clientStats(c) {
-    const info = forecastInfo();
+  function clientStats(c, info) {
+    info = info || forecastInfo();
     const jobs = S.jobs.filter(j => j.clientId === c.id);
     let spent = 0, last = null;
     jobs.forEach(j => {
@@ -2665,11 +2674,13 @@ a { color: var(--link); text-decoration: none; }
     function render() {
       const body = ov.querySelector('#cl');
       const unlinked = unlinkedCustomers();
+      const info = forecastInfo();
       const list = [...S.clients].sort((a, b) => a.name.localeCompare(b.name))
         .filter(c => !q || normName(c.name).includes(q) || (c.email || '').toLowerCase().includes(q) || (c.phone || '').replace(/\s/g, '').includes(q.replace(/\s/g, '')));
+      const statsOf = new Map(list.map(c => [c.id, clientStats(c, info)]));
       body.innerHTML = `
         ${S.clients.length ? `<div class="search" style="margin-top:8px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="cl-q" placeholder="Search clients" value="${esc(q)}"></div>` : ''}
-        <div class="group" style="margin-top:12px">${list.length ? list.map(c => { const st = clientStats(c); return `<div class="row tap chev" data-c="${esc(c.id)}"><div style="min-width:0">
+        <div class="group" style="margin-top:12px">${list.length ? list.map(c => { const st = statsOf.get(c.id); return `<div class="row tap chev" data-c="${esc(c.id)}"><div style="min-width:0">
             <div>${esc(c.name)}</div><div class="hint">${esc([c.phone, `${st.jobs.length} ${st.jobs.length === 1 ? 'job' : 'jobs'}`].filter(Boolean).join(' · '))}</div></div>
             <span class="v num">${st.spent ? esc(fmt(st.spent)) : ''}</span></div>`; }).join('')
           : `<div class="row hint">${S.clients.length ? 'No clients match your search.' : 'No saved clients yet. Tap + to add one, or tick "Save as a client" when you create a job.'}</div>`}</div>
@@ -2693,10 +2704,10 @@ a { color: var(--link); text-decoration: none; }
     function render() {
       const c = clientById(id);
       if (!c) { closeOverlay(ov); return; }
-      const st = clientStats(c);
+      const info = forecastInfo();
+      const st = clientStats(c, info);
       const tel = phoneUrl(c.phone), mail = emailUrl(c.email);
       const jobs = [...st.jobs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      const info = forecastInfo();
       ov.querySelector('.title').textContent = c.name;
       ov.querySelector('#cd').innerHTML = `
         <div class="group" style="margin-top:12px"><div class="pad"><div class="big" style="font-size:24px">${esc(c.name)}</div>
@@ -2781,10 +2792,12 @@ a { color: var(--link); text-decoration: none; }
   // =========================================================================================
   function forecastInfo() {
     const info = {};
-    S.jobs.forEach(j => {
-      const logs = S.logs.filter(l => l.jobId === j.id);
-      info[j.id] = { laborPence: logs.reduce((s2, l) => s2 + TM.entryEarnings(entryOf(l)), 0), lastLogMs: logs.length ? Math.max(...logs.map(l => l.start)) : null,
-                     workedSeconds: logs.reduce((s2, l) => s2 + (l.workedSeconds || 0), 0) };
+    S.jobs.forEach(j => { info[j.id] = { laborPence: 0, lastLogMs: null, workedSeconds: 0 }; });
+    S.logs.forEach(l => {                         // one pass over the logs, however many jobs there are
+      const i = l.jobId && info[l.jobId]; if (!i) return;
+      i.laborPence += TM.entryEarnings(l);         // uses only isBillable, workedSeconds, ratePence
+      i.workedSeconds += l.workedSeconds || 0;
+      if (i.lastLogMs === null || l.start > i.lastLogMs) i.lastLogMs = l.start;
     });
     return info;
   }
@@ -2840,15 +2853,17 @@ a { color: var(--link); text-decoration: none; }
   function openTimeLogs(initialFilter) {
     const ov = pushOverlay('page');
     let filter = initialFilter || { type: 'all' };
+    const PAGE = 150; let limit = PAGE;   // long histories are shown in batches
     ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Back</button><div class="title">Time logs</div>
       <button class="linkbtn r" data-add aria-label="Add time manually" style="font-size:26px">＋</button></div><div class="body" id="tl"></div>`;
     ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
     ov.querySelector('[data-add]').onclick = () => openLogEditor(null, filter);
     function render() {
       if (filter.type === 'job' && !jobById(filter.id)) filter = { type: 'all' };
-      const shown = S.logs.filter(l => Filter.includes(filter, entryOf(l))).sort((a, b) => b.start - a.start);
-      const days = [];
-      shown.forEach(l => { const d = startOfDay(l.start); let g = days.find(x => x.d === d); if (!g) days.push(g = { d, logs: [] }); g.logs.push(l); });
+      const all = S.logs.filter(l => Filter.includes(filter, entryOf(l))).sort((a, b) => b.start - a.start);
+      const shown = all.slice(0, limit);
+      const days = [], byDay = new Map();
+      shown.forEach(l => { const d = startOfDay(l.start); let g = byDay.get(d); if (!g) { g = { d, logs: [] }; byDay.set(d, g); days.push(g); } g.logs.push(l); });
       const body = ov.querySelector('#tl');
       body.innerHTML = `<div class="group" style="margin-top:14px">${filterSelect('tl-f', filter)}</div>
         ${shown.length ? days.map(g => `<div class="sh" style="display:flex;justify-content:space-between;text-transform:none">
@@ -2860,10 +2875,12 @@ a { color: var(--link); text-decoration: none; }
             ${l.notes ? `<div class="hint">${esc(l.notes)}</div>` : ''}</div>
             ${l.isBillable ? `<b class="num">${fmt(TM.entryEarnings(entryOf(l)))}</b>` : '<span class="hint">Non-billable</span>'}</div>`,
             [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }])).join('')}</div>`).join('')
-          : '<div class="empty"><div class="ico">🕒</div><b>No time logged</b>Time from the timer and manual entries appears here.</div>'}`;
-      const fs = body.querySelector('#tl-f'); fs.value = Filter.key(filter); fs.onchange = () => { filter = Filter.parse(fs.value); render(); };
+          : '<div class="empty"><div class="ico">🕒</div><b>No time logged</b>Time from the timer and manual entries appears here.</div>'}
+        ${all.length > shown.length ? `<div class="group" style="margin-top:14px"><div class="row btnrow tap" id="tl-more">Show older entries (${all.length - shown.length} more)</div></div>` : ''}`;
+      const more = body.querySelector('#tl-more'); if (more) more.onclick = () => { limit += PAGE; const y = body.scrollTop; render(); body.scrollTop = y; };
+      const fs = body.querySelector('#tl-f'); fs.value = Filter.key(filter); fs.onchange = () => { filter = Filter.parse(fs.value); limit = PAGE; render(); };
       body.querySelectorAll('[data-day]').forEach(groupEl => {
-        const logs = days.find(g => String(g.d) === groupEl.dataset.day).logs;
+        const logs = byDay.get(Number(groupEl.dataset.day)).logs;
         bindSwipes(groupEl, { tap: i => openLogEditor(logs[i].id), action: (i, a) => a === 0 ? openLogEditor(logs[i].id) : confirmDeleteLog(logs[i]) });
       });
     }
