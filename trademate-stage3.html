@@ -1516,16 +1516,25 @@ a { color: var(--link); text-decoration: none; }
     const job = jobById(S.shift.jobID);
     if (job && job.status === 'New') {
       job.status = 'In Progress';
+      S.shift.movedFromNew = true;   // remembered so an accidental under-a-minute shift can undo it
       toast(`${job.customerName} is now In Progress`);
       saveAll(); refreshAll();
       return;
     }
     saveAll(); renderTimerDynamic();
   }
+  const MIN_SHIFT_SECONDS = 60;   // shorter shifts are treated as an accidental Start/Stop and not saved
   function stopShift() {
+    const movedFromNew = !!S.shift.movedFromNew;
     const r = Shift.stop(S.shift, Date.now());
     S.shift = r.state;
-    if (r.done) {
+    if (r.done && r.done.workedSeconds < MIN_SHIFT_SECONDS) {
+      // Not saved. Also undo the automatic New -> In Progress, if this job has never had any time logged.
+      const job = jobById(r.done.jobID);
+      if (movedFromNew && job && job.status === 'In Progress' && !S.logs.some(l => l.jobId === job.id)) job.status = 'New';
+      S.savedMsg = '';
+      toast('Shift under a minute – not saved.');
+    } else if (r.done) {
       const job = jobById(r.done.jobID);
       S.logs.push({ id: uid(), start: r.done.start, end: r.done.end, workedSeconds: r.done.workedSeconds, breakSeconds: r.done.breakSeconds,
         ratePence: JobRates.logRate(job ? job.ratePence : null, S.settings.ratePence), isBillable: !!job, notes: '',
@@ -2510,7 +2519,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 19:24</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 19:53</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
