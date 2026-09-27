@@ -871,9 +871,11 @@ a { color: var(--link); text-decoration: none; }
       const priced = rows.filter(r => r.pence !== null);
       const totalPence = priced.reduce((s, r) => s + r.pence, 0);
       const pricedSeconds = priced.reduce((s, r) => s + r.workedSeconds, 0);
-      return { rows, totalPence, unpriced: rows.length - priced.length,
-               effectiveRatePence: pricedSeconds > 0 ? roundedDivision(totalPence * 3600, pricedSeconds) : null };
-    }
+      return { rows, totalPence, unpriced: rows.length - priced.length, pricedSeconds,
+               effectiveRatePence: Income.rate(totalPence, pricedSeconds) };
+    },
+    /** pence per hour, whole pence (null when there are no hours) */
+    rate(pence, seconds) { return seconds > 0 ? roundedDivision(pence * 3600, seconds) : null; }
   };
 
   // Enquiries (possible jobs, e.g. a quote visit) and enquiries that didn't go ahead are not work yet:
@@ -2499,7 +2501,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 17:27</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 18:59</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
@@ -2583,7 +2585,8 @@ a { color: var(--link); text-decoration: none; }
           <div class="row"><span>Non-billable (General)</span><span class="v num">${Duration.decimalHours(s.nonBillableSeconds)}</span></div>
           <div class="row"><span>Break time</span><span class="v num">${Duration.short(s.breakSeconds)}</span></div>
           <div class="row"><span>Average per working day</span><span class="v num">${s.averageSecondsPerActiveDay === null ? '—' : Duration.decimalHours(s.averageSecondsPerActiveDay) + ' hrs'}</span></div>
-          <div class="row"><div><div>Effective hourly rate</div><div class="hint">Income ÷ hours spent on those jobs</div></div><span class="v num">${inc.effectiveRatePence === null ? '—' : fmt(inc.effectiveRatePence) + '/hr'}</span></div>
+          <div class="row"><div><div>Effective hourly rate</div><div class="hint">${inc.pricedSeconds > 0 ? `${esc(fmt(inc.totalPence))} ÷ ${Duration.decimalHours(inc.pricedSeconds)} hrs on these jobs` : 'Income ÷ hours spent on those jobs'}</div></div><span class="v num">${inc.effectiveRatePence === null ? '—' : fmt(inc.effectiveRatePence) + '/hr'}</span></div>
+          <div class="row"><div><div>Earnings per hour worked</div><div class="hint">${s.workedSeconds > 0 ? `${esc(fmt(inc.totalPence))} ÷ ${Duration.decimalHours(s.workedSeconds)} hrs worked, General included` : 'Income ÷ all hours worked'} · best on Month or All</div></div><span class="v num">${Income.rate(inc.totalPence, s.workedSeconds) === null ? '—' : fmt(Income.rate(inc.totalPence, s.workedSeconds)) + '/hr'}</span></div>
           <div class="row"><span>Longest entry</span><span class="v num">${Duration.short(s.longestShiftSeconds)}</span></div>
           <div class="row"><div><div>Time value</div><div class="hint">Hours worked × hourly rate (effort, not income)</div></div><span class="v num">${fmt(s.earningsPence)}</span></div></div>
         <div class="sh">Completed jobs</div><div class="group">${inc.rows.length ? inc.rows.map(r => `<div class="row tap" data-job="${esc(r.job.id)}"><div style="min-width:0"><div>${esc(r.job.customerName)}</div>
