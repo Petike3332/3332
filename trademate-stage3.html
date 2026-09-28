@@ -109,7 +109,11 @@ a { color: var(--link); text-decoration: none; }
 /* Timer */
 .card { background: var(--card); border-radius: 18px; margin: 0 16px 14px; padding: 16px; }
 .cap { font-size: 12px; font-weight: 700; color: var(--sub); letter-spacing: .5px; text-transform: uppercase; }
-.timer-top { display: flex; justify-content: space-between; align-items: center; }
+/* Clock on the left, Worked today on the right; the status pill is pinned to the exact middle of the card,
+   whatever the widths of the other two (works the same in Safari and every other browser). */
+.timer-top { position: relative; display: flex; justify-content: space-between; align-items: center; min-height: 36px; }
+.timer-top #tstatus { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; }
+@media (max-width: 350px) { .timer-top #tstatus { position: static; transform: none; } }   /* very small phones: no room to centre without overlapping */
 .ring { position: relative; width: 230px; height: 230px; margin: 10px auto 6px; }
 .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .ring .track { fill: none; stroke: var(--fill2); stroke-width: 14; }
@@ -2586,7 +2590,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span>📘 Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">27 Sep 2026, 20:11</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">28 Sep 2026, 19:03</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
