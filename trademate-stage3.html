@@ -6,7 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TradeMate S3">
-<meta name="theme-color" content="#1B365D">
+<meta name="theme-color" content="#F3F4F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
 <title>TradeMate — Stage 3 (web test)</title>
 <link rel="apple-touch-icon" href="data:image/png;base64,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">
 <link rel="icon" href="data:image/png;base64,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">
@@ -406,17 +410,176 @@ a { color: var(--link); text-decoration: none; }
 .gnext { width: 100%; max-width: 340px; }
 .gback { margin-top: 12px; }
 
+
+/* ==================== INK & BRASS REDESIGN (Oct 2026) ====================
+   One layer on top of the original styles: delete this block to go back to the old look. */
+:root {
+  --brass: #E2B464; --brass-ink: #1A1306; --line: rgba(14,22,38,.08);
+  --bg: #F3F4F7; --card: #ffffff; --card2: #EEF0F4; --text: #0E1626; --sub: #5B667D; --faint: #8C96AA;
+  --sep: rgba(14,22,38,.10); --fill: rgba(14,22,38,.05); --fill2: rgba(14,22,38,.09);
+  --accent: #8A6214; --link: #8A6214; --green-t: #1E7A48; --orange-t: #A35A0E; --nav: rgba(255,255,255,.92);
+  --display: 'Sora', 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B1220; --card: #131C2E; --card2: #1A2540; --text: #F3F5F9; --sub: #9AA6BD; --faint: #6B7891;
+    --sep: rgba(255,255,255,.08); --fill: rgba(255,255,255,.06); --fill2: rgba(255,255,255,.11); --line: rgba(255,255,255,.07);
+    --accent: #E2B464; --link: #E2B464; --green-t: #5BD69B; --orange-t: #F3A35B; --nav: rgba(19,28,46,.92);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B1220; --card: #131C2E; --card2: #1A2540; --text: #F3F5F9; --sub: #9AA6BD; --faint: #6B7891;
+  --sep: rgba(255,255,255,.08); --fill: rgba(255,255,255,.06); --fill2: rgba(255,255,255,.11); --line: rgba(255,255,255,.07);
+  --accent: #E2B464; --link: #E2B464; --green-t: #5BD69B; --orange-t: #F3A35B; --nav: rgba(19,28,46,.92);
+}
+html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; }
+.large { font-family: var(--display); font-size: 32px; font-weight: 700; letter-spacing: -.6px; margin: 14px 20px 10px; }
+.navbar .title, .empty b { font-family: var(--display); font-weight: 600; }
+.ring .t { font-family: var(--display); font-weight: 600; letter-spacing: -1px; }
+.wtv, .jno { font-family: var(--display); }
+.icn { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* cards, lists, section labels */
+.card { border-radius: 22px; border: 1px solid var(--line); }
+.group { border-radius: 20px; border: 1px solid var(--line); }
+.sh { font-size: 12px; font-weight: 700; letter-spacing: 1px; margin: 22px 26px 8px; }
+.sf { margin: 8px 26px 0; }
+.cap { letter-spacing: 1px; }
+.swipe.jobcard { border-radius: 22px; border: 1px solid var(--line); box-shadow: none; }
+.swipe.jobcard .front { border-radius: 22px; }
+.jobrow { padding: 14px 16px; }
+.jobrow .name { font-weight: 700; }
+.jobrow .desc { color: var(--sub); }
+
+/* buttons, pills, segmented controls, fields */
+.btn { border-radius: 16px; font-weight: 700; }
+.btn.small { min-height: 40px; border-radius: 14px; padding: 0 14px; }
+.btn.prim, .btn.start { background: var(--brass); color: var(--brass-ink); }
+.btn.stop { background: var(--text); color: var(--bg); }
+.btn.stop .sq { color: #E5484D; }
+.btn.tint, .btn.tint-orange { background: var(--card2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.pill { border-radius: 13px; padding: 4px 10px; font-weight: 700; }
+.seg { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); border-radius: 16px; padding: 4px; }
+.seg button { border-radius: 12px; padding: 9px 4px; font-weight: 600; color: var(--sub); }
+.seg button.on { background: var(--card2); color: var(--text); box-shadow: none; }
+.search { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); border-radius: 16px; padding: 12px 14px; margin: 6px 16px 12px; }
+.picker { border-radius: 16px; background: var(--card2); box-shadow: inset 0 0 0 1px var(--line); font-weight: 600; padding: 13px 14px; }
+.asheet .grp { border-radius: 20px; }
+
+/* timer ring */
+.ring .track { stroke: var(--fill2); }
+
+/* floating tab bar: content scrolls underneath it */
+.tab { bottom: 0; padding-bottom: calc(96px + var(--safe-b)); }
+#tabbar { left: 12px; right: 12px; bottom: calc(8px + var(--safe-b)); height: 64px; padding-bottom: 0; border-radius: 24px;
+  border: 1px solid var(--line); border-top: 1px solid var(--line); box-shadow: 0 12px 30px rgba(0,0,0,.22); }
+#tabbar button { color: var(--sub); font-size: 11px; }
+#tabbar button.on { color: var(--accent); font-weight: 700; }
+#toast { bottom: calc(86px + var(--safe-b)); }
+/* --- mockup layout: 5 tabs, Today screen --- */
+#tabbar { grid-template-columns: repeat(5, 1fr); }
+.today-head { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 20px 12px; }
+.tsub { font-size: 13px; color: var(--sub); font-weight: 500; margin-bottom: 2px; }
+.biz { width: 44px; height: 44px; border-radius: 14px; background: #1B365D; border: 1px solid rgba(226,180,100,.45); color: var(--brass);
+  display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700; font-size: 15px; }
+.av { border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0B1220; font-family: var(--display); font-weight: 700; flex: none; }
+.jobpick { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.jobpick .jp-sel { position: absolute; inset: 0; opacity: 0; margin: 0; width: 100%; height: 100%; cursor: pointer; font-size: 16px; }
+.jobpick .jp-sel:disabled { cursor: default; }
+.jp-txt { flex: 1; min-width: 0; }
+.jp-k { font-size: 12.5px; color: var(--sub); font-weight: 500; }
+.jp-n { font-weight: 700; font-size: 16px; }
+.jp-d { color: var(--sub); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#wallclock { display: none; }
+.metrics.m3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; text-align: center; }
+.metrics .m { font-family: var(--display); font-weight: 600; }
+.tbtns { display: flex; gap: 10px; margin-top: 14px; }
+.tbtns #tbreakwrap { flex: 1; }
+.tbtns #tbreakwrap:empty { display: none; }
+.tbtns #tbreak { margin-top: 0 !important; min-height: 54px; border-radius: 18px; }
+.tbtns #tmain { flex: 1.4; min-height: 54px; border-radius: 18px; }
+#ttoday, #tbudget { display: none; }
+/* --- mockup layout: job cards --- */
+.jtop { display: flex; align-items: center; gap: 12px; }
+.jt { flex: 1; min-width: 0; }
+.jline { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.jline .jno { font-size: 13px; font-weight: 600; color: var(--sub); margin: 0; }
+.jline .name { font-size: 16.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jobrow .jt .desc { margin-top: 1px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jobrow .addr { margin-top: 10px; }
+.jobrow .daterow { background: var(--card2); border-radius: 14px; padding: 9px 12px; margin-top: 8px; }
+.jbud { margin-top: 12px; }
+.jbud-t { display: flex; justify-content: space-between; font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+.jbud-b { height: 6px; border-radius: 3px; background: var(--fill2); overflow: hidden; }
+.jbud-b > div { height: 100%; border-radius: 3px; background: var(--brass); }
+.racts { gap: 10px; margin-top: 12px; }
+.rbtn { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--card2); box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.rbtn .icn { width: 20px; height: 20px; }
+.rbtn:first-child { background: var(--brass); color: var(--brass-ink); box-shadow: none; }
+/* --- mockup layout: job detail --- */
+.dhead { display: flex; align-items: center; gap: 14px; padding: 10px 20px 14px; }
+.dname { margin: 0; font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: -.4px; }
+.dacts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 16px 14px; }
+.dact { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 11px 0; border-radius: 16px; border: 0; background: var(--card2);
+  box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font-size: 12.5px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.dact .icn { width: 20px; height: 20px; }
+.dact.off { opacity: .4; }
+.dsteps { display: flex; }
+.dstep { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--sub); text-align: center; }
+.dstep .dot { width: 26px; height: 26px; border-radius: 13px; border: 2px solid var(--fill2); display: flex; align-items: center; justify-content: center; color: var(--brass-ink); }
+.dstep.ok { color: var(--text); } .dstep.ok .dot { background: var(--brass); border-color: var(--brass); }
+.dstep.now { color: var(--text); } .dstep.now .dot { border-color: var(--brass); box-shadow: inset 0 0 0 5px var(--card), inset 0 0 0 12px var(--brass); }
+.dmoney { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.dm .k { font-size: 12.5px; color: var(--sub); font-weight: 500; }
+.dm .v { font-family: var(--display); font-weight: 600; font-size: 19px; margin: 2px 0; }
+.dm .v.good { color: var(--green-t); }
+.dm .s { font-size: 12px; color: var(--sub); }
+.dbig { font-family: var(--display); font-weight: 600; font-size: 26px; }
+.ddate { display: flex; align-items: center; gap: 12px; padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); }
+.cap + .ddate { border-top: 0; margin-top: 4px; }
+.ddi { width: 38px; height: 38px; border-radius: 12px; background: var(--card2); display: flex; align-items: center; justify-content: center; font-size: 18px; flex: none; }
+.dstat { font-size: 13px; font-weight: 700; color: var(--sub); white-space: nowrap; }
+.dstat.ok { color: var(--green-t); } .dstat.soon { color: var(--orange-t); } .dstat.late { color: var(--red); }
+.dphotos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.dph { position: relative; aspect-ratio: 1; border-radius: 16px; overflow: hidden; border: 0; padding: 0; background: var(--card2); }
+.dph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dph span { position: absolute; left: 6px; bottom: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 8px; background: rgba(11,18,32,.75); color: #fff; }
+/* --- mockup layout: map --- */
+.jpin { display: flex; flex-direction: column; align-items: center; }
+.jpin-b { min-width: 34px; height: 34px; padding: 0 7px; box-sizing: border-box; border-radius: 17px; background: var(--card2); color: var(--text);
+  border: 2px solid rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700; font-size: 13px; box-shadow: 0 6px 16px rgba(0,0,0,.45); }
+.jpin-t { width: 2px; height: 14px; background: rgba(255,255,255,.3); }
+.jpin.on .jpin-b { min-width: 40px; height: 40px; border-radius: 20px; background: var(--brass); color: var(--brass-ink); border-color: #F7E2B6; font-size: 14.5px; }
+.jpin.on .jpin-t { background: var(--brass); height: 8px; }
+.mapcard { bottom: calc(86px + var(--safe-b)); background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 10px 16px 16px; box-shadow: 0 -10px 30px rgba(0,0,0,.35); }
+.mc-handle { width: 38px; height: 5px; border-radius: 3px; background: var(--fill2); margin: 0 auto 12px; }
+#tab-map .leaflet-bottom { bottom: calc(80px + var(--safe-b)); }
+/* --- mockup layout: account --- */
+.acard { display: flex; align-items: center; gap: 14px; }
+.abk { width: 44px; height: 44px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center; background: rgba(91,214,155,.14); color: var(--green-t); }
+.abk.warn { background: rgba(243,163,91,.16); color: var(--orange-t); }
+.acard .btn.small { flex: none; }
+/* --- mockup layout: clients --- */
+.topcl { width: calc(100% - 32px); display: flex; align-items: center; gap: 14px; border: 1px solid var(--line); color: var(--text); font: inherit; cursor: pointer; margin-top: 4px; }
+.topk { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); }
+.clv { display: flex; flex-direction: column; align-items: flex-end; }
+.clv b { font-family: var(--display); font-weight: 600; }
+.clv span { font-size: 12px; color: var(--sub); }
+/* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
 <body>
 <main class="tab active" id="tab-timer"></main>
 <main class="tab" id="tab-jobs"></main>
 <main class="tab" id="tab-map"></main>
+<main class="tab" id="tab-money"></main>
 <main class="tab" id="tab-account"></main>
 <nav id="tabbar">
-  <button data-tab="timer" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>Timer</button>
+  <button data-tab="timer" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>Today</button>
   <button data-tab="jobs"><svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M2.5 12.5h19"/></svg>Jobs</button>
   <button data-tab="map"><svg viewBox="0 0 24 24"><path d="M9 4.5 3.5 6.8v12.7L9 17.2l6 2.3 5.5-2.3V4.5L15 6.8 9 4.5z"/><path d="M9 4.5v12.7M15 6.8v12.7"/></svg>Map</button>
+  <button data-tab="money"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12v4M4 7v11a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14.5h.01"/></svg>Money</button>
   <button data-tab="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Account</button>
 </nav>
 <div id="overlays"></div>
@@ -1055,6 +1218,9 @@ a { color: var(--link); text-decoration: none; }
     });
     document.body.appendChild(bg);
   }
+  const initials = n => { const w = String(n || '').trim().split(/\s+/).filter(Boolean); return ((w[0] ? Array.from(w[0])[0] : '') + (w[1] ? Array.from(w[1])[0] : (w[0] ? (Array.from(w[0])[1] || '') : ''))).toUpperCase() || '?'; };
+  const AVATAR_TONES = ['#E8C78E', '#9FC4FF', '#8EE0B6', '#F2B8A0', '#C9B8F5', '#B7C3D9'];
+  const avatarColor = n => { let h = 0; for (const ch of String(n || '')) h = (h * 31 + ch.codePointAt(0)) >>> 0; return AVATAR_TONES[h % AVATAR_TONES.length]; };
   const statusLabel = s => (s === 'Declined' ? 'Not going ahead' : s);
   const statusPill = s => `<span class="pill ${s === 'New' ? 'blue' : s === 'In Progress' ? 'green' : s === 'Enquiry' ? 'orange' : 'gray'}">${esc(statusLabel(s))}</span>`;
   const EMAIL_RE = /^[^\s@<>()"',;:\\]+@[^\s@<>()"',;:\\]+\.[^\s@<>()"',;:\\]{2,}$/;
@@ -1147,6 +1313,7 @@ a { color: var(--link); text-decoration: none; }
     renderComingUp();
     renderJobList();
     if (activeTab === 'map') renderMapTab();
+    if (activeTab === 'money' && moneyRender) moneyRender();
     stack.forEach(o => o.refresh && o.refresh());
   }
 
@@ -1181,25 +1348,28 @@ a { color: var(--link); text-decoration: none; }
 
   function renderTimer() {
     $('tab-timer').innerHTML = `
-      <div class="large">Timer</div>
+      <div class="today-head"><div><div class="tsub" id="tdate"></div><h1 class="large" style="margin:0">Today</h1></div><div class="biz" id="tbiz" aria-hidden="true"></div></div>
+      <div class="card jobpick">
+        <div class="av" id="tjav" style="width:44px;height:44px;font-size:15px"></div>
+        <div class="jp-txt"><div class="jp-k" id="tjk"></div><div class="jp-n" id="tjn"></div><div class="jp-d" id="tjd"></div></div><svg class="icn" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--sub)"><path d="m9 6 6 6-6 6"/></svg>
+        <select class="picker jp-sel" id="tpick" aria-label="Choose the job to time"></select>
+      </div>
       <div class="card">
-        <div class="timer-top"><span id="wallclock"></span><span id="tstatus"></span>
-          <div class="wt"><div class="wtl">Worked today</div><div class="wtv num" id="tworked">00:00:00</div></div></div>
-        <select class="picker" id="tpick" aria-label="Job"></select>
+        <div class="timer-top"><span id="wallclock"></span><span id="tstatus"></span></div>
         <div class="ring">
           <svg viewBox="0 0 120 120" aria-hidden="true">
-            <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34c759"/><stop offset="1" stop-color="#007aff"/></linearGradient></defs>
+            <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0CB86"/><stop offset="1" stop-color="#C9963F"/></linearGradient></defs>
             <circle class="track" cx="60" cy="60" r="52"/>
             <circle class="bar" id="rbar" cx="60" cy="60" r="52" stroke="url(#rg)" stroke-dasharray="${RING}" stroke-dashoffset="${RING}"/>
           </svg>
           <div class="inner"><div class="cap">This shift</div><div class="t" id="tclock">00:00:00</div><div class="hint" id="tcap"></div></div>
         </div>
-        <div class="metrics">
+        <div class="metrics m3">
+          <div><div class="l">Today</div><div class="m num" id="tworked">00:00:00</div></div>
           <div><div class="l" id="test-l">Est. earnings</div><div class="m" id="test"></div></div>
           <div><div class="l">Breaks</div><div class="m" id="tbreaks"></div></div>
         </div>
-        <button class="btn" id="tmain"></button>
-        <div id="tbreakwrap"></div>
+        <div class="tbtns"><div id="tbreakwrap"></div><button class="btn" id="tmain"></button></div>
         <div class="hint" id="tsaved" style="text-align:center;margin-top:10px"></div>
       </div>
       <div id="tbudget"></div>
@@ -1222,6 +1392,16 @@ a { color: var(--link); text-decoration: none; }
     if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.dataset.opts = opts; }
     sel.value = activeJobID() || '';
     sel.disabled = sh.isRunning;
+    // "Working on" card (the picker sits invisibly over it)
+    const pj = jobById(activeJobID());
+    $('tjav').textContent = pj ? initials(pj.customerName) : 'G';
+    $('tjav').style.background = pj ? avatarColor(pj.customerName) : 'var(--card2)';
+    $('tjav').style.color = pj ? '#0B1220' : 'var(--sub)';
+    $('tjk').textContent = pj ? `${sh.isRunning ? 'Working on' : 'Selected'}${Number.isInteger(pj.number) ? ' · #' + pj.number : ''}` : (sh.isRunning ? 'Working on' : 'No job selected');
+    $('tjn').textContent = pj ? pj.customerName : GENERAL;
+    $('tjd').textContent = pj ? pj.jobDescription : (sh.isRunning ? 'Time not linked to a job' : 'Tap to choose a job');
+    $('tdate').textContent = new Date(now).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('tbiz').textContent = initials(S.settings.businessName || 'TradeMate');
     // header
     const live = sh.isRunning && !sh.isOnBreak;
     const d = new Date(now);
@@ -1253,10 +1433,10 @@ a { color: var(--link); text-decoration: none; }
     $('test-l').textContent = tj && Income.pricing(tj) === 'fixed' ? 'Time value' : 'Est. earnings';
     $('tbreaks').textContent = Duration.short(Shift.breakTime(sh, now));
     const main = $('tmain');
-    main.className = 'btn ' + (sh.isRunning ? 'red' : 'green');
-    main.innerHTML = sh.isRunning ? '■ Stop' : '▶ Start';
+    main.className = 'btn ' + (sh.isRunning ? 'stop' : 'start');
+    main.innerHTML = sh.isRunning ? '<span class="sq" aria-hidden="true">■</span> Stop' : '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l11-7z" fill="currentColor"/></svg> Start';
     $('tbreakwrap').innerHTML = sh.isRunning
-      ? `<button class="btn tint-orange" id="tbreak" style="margin-top:10px">${sh.isOnBreak ? '▶ End break' : '☕ Take a break'}</button>` : '';
+      ? `<button class="btn tint-orange" id="tbreak" style="margin-top:10px">${sh.isOnBreak ? '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l11-7z" fill="currentColor"/></svg> End break' : '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M12 3v3"/></svg> Break'}</button>` : '';
     if ($('tbreak')) $('tbreak').onclick = () => { S.shift = Shift.toggleBreak(S.shift, Date.now()); saveAll(); renderTimerDynamic(); };
     $('tsaved').textContent = S.savedMsg;
     // current job budget card
@@ -1583,6 +1763,15 @@ a { color: var(--link); text-decoration: none; }
     $('jsearch').addEventListener('input', e => { S.jobSearch = e.target.value; renderJobList(); });
     renderJobList();
   }
+  // "£360 quote · 2.1 / 10.3 hrs" with a brass bar, for priced jobs with a rate
+  function budgetBar(j, info) {
+    if (isEnquiry(j) || j.quotePence === null || j.quotePence === undefined || !(j.ratePence > 0)) return '';
+    const allow = Money.allowanceSeconds(j.quotePence, j.ratePence), worked = ((info || {})[j.id] || {}).workedSeconds || 0;
+    if (!(allow > 0)) return '';
+    const pct = Math.min(100, Math.round(worked / allow * 100)), over = worked > allow;
+    return `<div class="jbud"><div class="jbud-t"><span>${esc(fmt(j.quotePence))} quote</span><span>${Duration.decimalHours(worked)} / ${Duration.decimalHours(allow)} hrs</span></div>
+      <div class="jbud-b"><div style="width:${pct}%;${over ? 'background:#E5484D' : ''}"></div></div></div>`;
+  }
   function renderJobList() {
     const box = $('jlist'); if (!box) return;
     const q = S.jobSearch.trim().toLowerCase();
@@ -1631,19 +1820,20 @@ a { color: var(--link); text-decoration: none; }
       const call = phoneUrl(j.phone), dir = directionsUrl(j), mail = emailUrl(j.email);
       const h = headingFor(j, i);
       return (h ? `<div class="sh jhead">${esc(h)}</div>` : '') + swipeRow(`<div class="jobrow">
-        <div class="top"><span class="name">${jobNo(j) ? `<span class="jno">${esc(jobNo(j))}</span>` : ''}${esc(j.customerName)}</span>${statusPill(j.status)}</div>
-        <div class="desc">${esc(j.jobDescription)}</div>
+        <div class="jtop"><div class="av" style="width:42px;height:42px;font-size:14px;background:${avatarColor(j.customerName)}" aria-hidden="true">${esc(initials(j.customerName))}</div>
+          <div class="jt"><div class="jline">${jobNo(j) ? `<span class="jno">${esc(jobNo(j))}</span>` : ''}<span class="name">${esc(j.customerName)}</span></div><div class="desc">${esc(j.jobDescription)}</div></div>${statusPill(j.status)}</div>
         ${j.address ? `<div class="addr">📍 ${esc(j.address)}</div>` : ''}
         ${dateRows(j)}
+        ${budgetBar(j, info)}
         ${depositRow(j)}
         ${photoStrip(j)}
         ${j.status === 'Enquiry' ? `<div class="acts"><button type="button" class="btn prim small" data-convert="${esc(j.id)}">✓ Turn into job</button><button type="button" class="btn tint small" data-decline="${esc(j.id)}">Not going ahead</button></div>` : ''}
         ${j.status === 'Declined' ? `<div class="acts"><button type="button" class="btn tint small" data-reopen="${esc(j.id)}">↩ Reopen enquiry</button></div>` : ''}
-        <div class="acts">${call ? `<a class="btn prim small" href="${call}">📞 Call</a>` : ''}${mail ? `<a class="btn tint small" href="${esc(mail)}">✉️ Email</a>` : ''}${dir ? `<a class="btn tint small" href="${dir}" target="_blank" rel="noopener">➤ Directions</a>` : ''}<button type="button" class="btn tint small" data-sheet="${esc(j.id)}">🖨️ Job sheet</button></div>
+        <div class="acts racts">${call ? `<a class="rbtn" href="${call}" aria-label="Call" title="Call"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a11 11 0 0 0 6 6l1.5-2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 20 4 13.5 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></svg></a>` : ''}${mail ? `<a class="rbtn" href="${esc(mail)}" aria-label="Email" title="Email"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg></a>` : ''}${dir ? `<a class="rbtn" href="${dir}" target="_blank" rel="noopener" aria-label="Directions" title="Directions"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg></a>` : ''}<button type="button" class="rbtn" data-sheet="${esc(j.id)}" aria-label="Job sheet" title="Job sheet"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></button></div>
       </div>`, [{ label: 'Edit', color: '#8e8e93' }, { label: 'Delete', color: '#ff3b30' }], j.id, 'jobcard');
     }).join('')}<div class="sf" style="margin-top:0">Swipe left on a job to edit or delete it.</div>`;
     bindSwipes(box, {
-      tap: i => openJobEditor(jobs[i].id),
+      tap: i => openJobDetail(jobs[i].id),
       action: (i, a) => a === 0 ? openJobEditor(jobs[i].id) : requestDeleteJob(jobs[i])
     });
     box.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => openJobSheet(b.dataset.sheet));
@@ -2232,10 +2422,12 @@ a { color: var(--link); text-decoration: none; }
     }
     setTimeout(() => jobMap.invalidateSize(), 50);
     jobMarkers.clearLayers();
+    jobPins = new Map();
     located.forEach(j => {
-      L.marker([j.latitude, j.longitude], { icon: markerIcon(colorFor(j.locationPrecision, j.locationPinMoved), glyphFor(j.locationPrecision, j.locationPinMoved)) })
+      const mk = L.marker([j.latitude, j.longitude], { icon: jobPinIcon(j, j.id === selectedMapJob) })
         .on('click', e => { L.DomEvent.stopPropagation(e); selectedMapJob = j.id; renderMapCard(); })
         .addTo(jobMarkers);
+      jobPins.set(j.id, mk);
     });
     if (located.length && !jobMap._fitted) {
       jobMap._fitted = true;
@@ -2244,14 +2436,29 @@ a { color: var(--link); text-decoration: none; }
     }
     renderMapCard();
   }
+  let jobPins = new Map();
+  function jobPinIcon(j, on) {
+    const label = Number.isInteger(j.number) ? String(j.number) : initials(j.customerName);
+    return L.divIcon({ className: '', html: `<div class="jpin${on ? ' on' : ''}"><div class="jpin-b">${esc(label)}</div><div class="jpin-t"></div></div>`, iconSize: [44, 52], iconAnchor: [22, 52] });
+  }
   function renderMapCard() {
+    jobPins.forEach((mk, id) => { const j2 = jobById(id); if (j2) mk.setIcon(jobPinIcon(j2, id === selectedMapJob)); });
     const j = jobById(selectedMapJob);
     if (!j || !JobLocation.has(j)) { $('mapcard').innerHTML = ''; return; }
-    $('mapcard').innerHTML = `<div class="mapcard"><div class="two" style="align-items:center"><b>${esc(j.customerName)}</b>
-      <span>${statusPill(j.status)} <button class="linkbtn" id="mc-x" aria-label="Close" style="padding:0 0 0 8px;font-size:22px;color:var(--sub)">✕</button></span></div>
-      <div style="color:var(--accent);font-size:15px;margin-top:2px">${esc(j.jobDescription)}</div>
-      <div class="hint" style="margin:4px 0 8px">${esc(j.address)}</div>${locationStatus(j.locationPrecision, j.locationPinMoved)}
-      <a class="btn prim" style="margin-top:12px" href="${directionsUrl(j)}" target="_blank" rel="noopener">➤ Directions</a></div>`;
+    const tel = phoneUrl(j.phone);
+    const nxt = dateFields(j).filter(([f]) => j[f] && !isDone(j, f)).sort((a, b) => (j[a[0]] + (timeOf(j, a[0]) || '')).localeCompare(j[b[0]] + (timeOf(j, b[0]) || '')))[0];
+    const nd = nxt ? dayDiff(j[nxt[0]]) : null;
+    const chip = nxt ? `<span class="pill ${nd <= 1 ? 'orange' : 'gray'}">${esc(nxt[1].short)} ${nd === 0 ? 'today' : nd === 1 ? 'tomorrow' : esc(prettyDay(j[nxt[0]]))}${timeOf(j, nxt[0]) ? ' ' + esc(timeOf(j, nxt[0])) : ''}</span>` : statusPill(j.status);
+    $('mapcard').innerHTML = `<div class="mapcard"><div class="mc-handle"></div>
+      <div style="display:flex;align-items:center;gap:12px"><div class="av" style="width:46px;height:46px;font-size:15px;background:${avatarColor(j.customerName)}" aria-hidden="true">${esc(initials(j.customerName))}</div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:16.5px">${jobNo(j) ? esc(jobNo(j)) + ' · ' : ''}${esc(j.customerName)}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.address)}</div></div>
+        <button class="linkbtn" id="mc-x" aria-label="Close" style="padding:0 4px;font-size:20px;color:var(--sub);min-height:44px">✕</button></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0">${chip}<span class="hint">${esc(j.jobDescription)}</span></div>
+      ${locationStatus(j.locationPrecision, j.locationPinMoved)}
+      <div style="display:flex;gap:10px;margin-top:12px"><a class="btn prim" style="flex:1;min-height:50px" href="${directionsUrl(j)}" target="_blank" rel="noopener"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg> Directions</a>
+        ${tel ? `<a class="rbtn" style="width:50px;height:50px;border-radius:25px;background:var(--card2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)" href="${tel}" aria-label="Call"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a11 11 0 0 0 6 6l1.5-2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 20 4 13.5 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></svg></a>` : ''}
+        <button type="button" class="rbtn" id="mc-open" style="width:50px;height:50px;border-radius:25px;background:var(--card2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)" aria-label="Open job"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></button></div></div>`;
+    $('mc-open').onclick = () => openJobDetail(j.id);
     $('mc-x').onclick = () => { selectedMapJob = null; renderMapCard(); };
   }
 
@@ -2528,7 +2735,7 @@ a { color: var(--link); text-decoration: none; }
   const GUIDE = [
     { icon: '💼', title: 'Add your jobs', text: 'Tap + on the Jobs tab. Add the customer, what the job is and your price. Everything else is optional: tap More details when you need it.' },
     { icon: '⏱️', title: 'Time your work', text: 'On the Timer, pick a job and press Start. Press Stop when you finish, and the time is saved to that job. Your earnings and income forecast update by themselves.' },
-    { icon: '🔒', title: 'Your data stays on this device', text: "Jobs, time logs, settings and photos are saved only in this browser on this device and don't sync to your other devices. If you clear Safari's data, reset this device, or switch phones, everything here is lost unless you've exported a backup (Account → Export backup). Two things do go online: when you use Find address, what you type is sent to free map services (OpenStreetMap, Photon and postcodes.io) to look it up, and the map loads from OpenStreetMap and Esri." }
+    { icon: '🔒', title: 'Your data stays on this device', text: "Jobs, time logs, settings and photos are saved only in this browser on this device and don't sync to your other devices. If you clear Safari's data, reset this device, or switch phones, everything here is lost unless you've exported a backup (Account → Export backup). Two things do go online: when you use Find address, what you type is sent to free map services (OpenStreetMap, Photon and postcodes.io) to look it up, and the map loads from OpenStreetMap and Esri, and the app's fonts load from Google Fonts." }
   ];
   function openGuide() {
     const ov = pushOverlay('sheet');
@@ -2560,7 +2767,14 @@ a { color: var(--link); text-decoration: none; }
     const bstat = backupStatus();
     const photoBytes = totalPhotoBytes();
     const overLimit = photoBytes > PHOTO_WARN_BYTES;
-    $('tab-account').innerHTML = `<div class="large">Account</div>
+    const lastB = st.lastBackupAt, bDays = lastB ? Math.floor((Date.now() - lastB) / 86400000) : null;
+    const bTitle = !lastB ? 'Not backed up yet' : bDays === 0 ? 'Backed up today' : bDays === 1 ? 'Backed up yesterday' : `Backed up ${bDays} days ago`;
+    $('tab-account').innerHTML = `<h1 class="large">Account</h1>
+      <div class="card acard"><div class="biz" style="width:58px;height:58px;border-radius:18px;font-size:19px" aria-hidden="true">${esc(initials(st.businessName || 'TradeMate'))}</div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:18px">${esc(st.businessName || 'TradeMate')}</div><div class="hint">${esc(fmt(st.ratePence))}/hr · ${esc(st.currency || 'GBP')}</div></div></div>
+      <div class="card acard"><div class="abk ${bstat.warn ? 'warn' : ''}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700">${bTitle}</div><div class="hint">Jobs, clients, time and photos</div></div>
+        <button type="button" class="btn tint small" id="ac-bk-now"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg> Back up</button></div>
       <div class="sh">Work</div><div class="group">
         <div class="row tap chev" id="ac-earn"><span>📊 Earnings summary</span><span></span></div>
         <div class="row tap chev" id="ac-logs"><span>🗒️ Time logs</span><span></span></div>
@@ -2590,16 +2804,17 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span>📘 Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">3 Oct 2026, 21:46</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">3 Oct 2026, 23:16</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
-    $('ac-earn').onclick = openEarnings;
+    $('ac-earn').onclick = () => showTab('money');
     $('ac-logs').onclick = () => openTimeLogs({ type: 'all' });
     $('ac-fore').onclick = openForecast;
     $('ac-clients').onclick = openClients;
     $('ac-guide').onclick = openGuide;
     $('ac-add').onclick = () => openLogEditor(null, { type: 'all' });
     $('ac-export').onclick = () => { exportBackup(); };
+    $('ac-bk-now').onclick = () => { exportBackup(); };
     $('ac-restore').onclick = () => { $('ac-restore-file').value = ''; $('ac-restore-file').click(); };
     $('ac-restore-file').onchange = e => { const file = e.target.files[0]; if (file) restoreBackupFile(file); };
     $('ac-biz').value = st.businessName;
@@ -2630,11 +2845,14 @@ a { color: var(--link); text-decoration: none; }
   // =========================================================================================
   // EARNINGS (EarningsView.swift)
   // =========================================================================================
-  function openEarnings() {
-    const ov = pushOverlay('page');
-    let period = 'week', anchor = Date.now(), filter = { type: 'all' };
-    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Account</button><div class="title">Earnings</div><span></span></div><div class="body" id="ea"></div>`;
-    ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
+  let moneyState = null;   // the Money tab keeps its period / date / filter while you switch tabs
+  function openEarnings(host) {
+    const ov = host || pushOverlay('page');
+    const st = host ? (moneyState = moneyState || { period: 'month', anchor: Date.now(), filter: { type: 'all' } }) : null;
+    let period = st ? st.period : 'week', anchor = st ? st.anchor : Date.now(), filter = st ? st.filter : { type: 'all' };
+    ov.innerHTML = host ? `<h1 class="large">Money</h1><div id="ea"></div>`
+      : `<div class="navbar"><button class="linkbtn" data-x>‹ Account</button><div class="title">Earnings</div><span></span></div><div class="body" id="ea"></div>`;
+    if (!host) ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
     function title(iv) {
       if (!iv) return 'All time';
       const s = new Date(iv.start), e = new Date(iv.end - 1);
@@ -2697,15 +2915,18 @@ a { color: var(--link); text-decoration: none; }
         <div class="sf">Income counts fixed-price jobs at their quoted price and hourly jobs at time × rate, in the period they were completed (the same rule as the Income forecast). Time value is what your hours would be worth at your hourly rate.</div>
         </div>`;
       const body = ov.querySelector('#ea');
+      if (st) Object.assign(st, { period, anchor, filter });
       body.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { period = b.dataset.p; render(); });
       body.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { anchor = Period.shifted(period, anchor, +b.dataset.n); render(); });
       const fs = body.querySelector('#ea-f'); fs.value = Filter.key(filter); fs.onchange = () => { filter = Filter.parse(fs.value); render(); };
-      body.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobEditor(r.dataset.job));
+      body.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobDetail(r.dataset.job));
       body.querySelector('#ea-more-btn').onclick = () => { setPrefOpen('tm3.earnMoreOpen', !prefOpen('tm3.earnMoreOpen')); const y = body.scrollTop; render(); body.scrollTop = y; };
     }
-    ov.refresh = render;
+    if (host) moneyRender = render; else ov.refresh = render;
     render();
   }
+  let moneyRender = null;
+  const renderMoneyTab = () => { const t = $('tab-money'); if (t) openEarnings(t); };
 
 
 
@@ -2767,11 +2988,15 @@ a { color: var(--link); text-decoration: none; }
       const list = [...S.clients].sort((a, b) => a.name.localeCompare(b.name))
         .filter(c => !q || normName(c.name).includes(q) || (c.email || '').toLowerCase().includes(q) || (c.phone || '').replace(/\s/g, '').includes(q.replace(/\s/g, '')));
       const statsOf = new Map(list.map(c => [c.id, clientStats(c, info)]));
+      const top = !q && list.length > 1 ? list.reduce((b, c) => (statsOf.get(c.id).spent > (b ? statsOf.get(b.id).spent : 0) ? c : b), null) : null;
+      const topSt = top ? statsOf.get(top.id) : null;
       body.innerHTML = `
         ${S.clients.length ? `<div class="search" style="margin-top:8px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="cl-q" placeholder="Search clients" value="${esc(q)}"></div>` : ''}
-        <div class="group" style="margin-top:12px">${list.length ? list.map(c => { const st = statsOf.get(c.id); return `<div class="row tap chev" data-c="${esc(c.id)}"><div style="min-width:0">
-            <div>${esc(c.name)}</div><div class="hint">${esc([c.phone, `${st.jobs.length} ${st.jobs.length === 1 ? 'job' : 'jobs'}`].filter(Boolean).join(' · '))}</div></div>
-            <span class="v num">${st.spent ? esc(fmt(st.spent)) : ''}</span></div>`; }).join('')
+        ${top && topSt.spent > 0 ? `<button type="button" class="card topcl" data-c="${esc(top.id)}"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avatarColor(top.name)}" aria-hidden="true">${esc(initials(top.name))}</div>
+          <div style="flex:1;min-width:0;text-align:left"><div class="topk">Top client</div><div style="font-weight:700;font-size:17px">${esc(top.name)}</div><div class="hint">${topSt.jobs.length} ${topSt.jobs.length === 1 ? 'job' : 'jobs'} · ${esc(fmt(topSt.spent))} lifetime</div></div></button>` : ''}
+        <div class="group" style="margin-top:12px">${list.length ? list.map(c => { const st = statsOf.get(c.id); return `<div class="row tap chev" data-c="${esc(c.id)}"><div class="av" style="width:44px;height:44px;font-size:15px;background:${avatarColor(c.name)}" aria-hidden="true">${esc(initials(c.name))}</div><div style="min-width:0;flex:1">
+            <div style="font-weight:700">${esc(c.name)}</div><div class="hint">${esc([`${st.jobs.length} ${st.jobs.length === 1 ? 'job' : 'jobs'}`, st.last ? 'last ' + sheetDate(st.last) : c.phone].filter(Boolean).join(' · '))}</div></div>
+            <span class="clv">${st.spent ? `<b class="num">${esc(fmt(st.spent))}</b><span>lifetime</span>` : ''}</span></div>`; }).join('')
           : `<div class="row hint">${S.clients.length ? 'No clients match your search.' : 'No saved clients yet. Tap + to add one, or tick "Save as a client" when you create a job.'}</div>`}</div>
         ${unlinked.size ? `<div class="group" style="margin-top:16px"><div class="row btnrow tap" id="cl-import">⊕ Create clients from my existing jobs</div></div>
           <div class="sf">${unlinked.size} customer name${unlinked.size === 1 ? '' : 's'} in your jobs ${unlinked.size === 1 ? "isn't" : "aren't"} saved as a client yet. Jobs with the same name are grouped together.</div>` : ''}`;
@@ -2814,7 +3039,7 @@ a { color: var(--link); text-decoration: none; }
           : '<div class="row hint">No jobs for this client yet.</div>'}</div>
         <div class="sf">Changing a client's details applies to new jobs. Existing jobs keep the details they were saved with.</div>`;
       ov.querySelector('#cd-new').onclick = () => openJobEditor(null, { clientId: id });
-      ov.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobEditor(r.dataset.job));
+      ov.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobDetail(r.dataset.job));
     }
     ov.refresh = render;
     render();
@@ -2930,7 +3155,7 @@ a { color: var(--link); text-decoration: none; }
       const body = ov.querySelector('#fc');
       body.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { key = Forecast.shiftKey(key, +b.dataset.n); render(); });
       body.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { key = b.dataset.k; render(); });
-      body.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobEditor(r.dataset.job));
+      body.querySelectorAll('[data-job]').forEach(r => r.onclick = () => openJobDetail(r.dataset.job));
     }
     ov.refresh = render;
     render();
@@ -3530,6 +3755,75 @@ a { color: var(--link); text-decoration: none; }
     return new Blob(chunks, { type: 'application/pdf' });
   }
 
+
+  // =========================================================================================
+  // JOB DETAIL — a read-only summary; Edit opens the full form
+  // =========================================================================================
+  function openJobDetail(id) {
+    const ov = pushOverlay('page');
+    function render() {
+      const j = jobById(id);
+      if (!j) { closeOverlay(ov); return; }
+      const info = forecastInfo()[j.id] || { workedSeconds: 0, laborPence: 0 };
+      const tel = phoneUrl(j.phone), sms = tel ? tel.replace('tel:', 'sms:') : null, dir = directionsUrl(j);
+      const act = (href, icon, label, extra = '') => href
+        ? `<a class="dact" href="${esc(href)}" ${extra}>${icon}<span>${label}</span></a>`
+        : `<span class="dact off" aria-disabled="true">${icon}<span>${label}</span></span>`;
+      // progress: Booked → Collected → In progress → Delivered
+      const enq = isEnquiry(j), done = j.status === 'Completed';
+      const steps = [
+        ['Booked', !enq],
+        [j.collectionDate ? kindOf(j, 'collectionDate').done : 'Started', j.collectionDate ? isDone(j, 'collectionDate') : (j.status === 'In Progress' || done)],
+        ['In progress', done || (j.deliveryDate && isDone(j, 'deliveryDate'))],
+        [j.deliveryDate ? kindOf(j, 'deliveryDate').done : 'Completed', done || (j.deliveryDate ? isDone(j, 'deliveryDate') : false)]];
+      let nowIdx = steps.findIndex(x => !x[1]);
+      const stepper = steps.map(([label, ok], k) => `<div class="dstep ${ok ? 'ok' : k === nowIdx ? 'now' : ''}"><div class="dot">${ok ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>' : ''}</div><span>${esc(label)}</span></div>`).join('');
+      // money
+      const q = j.quotePence, dep = j.depositPence > 0 ? j.depositPence : 0, fixed = Income.pricing(j) === 'fixed';
+      const balance = q !== null && q !== undefined ? Math.max(0, q - dep) : null;
+      const moneyCell = (k, v, sub, cls = '') => `<div class="dm"><div class="k">${k}</div><div class="v ${cls}">${v}</div><div class="s">${sub}</div></div>`;
+      // time vs quote
+      const allow = q !== null && q !== undefined && j.ratePence > 0 ? Money.allowanceSeconds(q, j.ratePence) : 0;
+      const worked = info.workedSeconds || 0, pct = allow ? Math.min(100, Math.round(worked / allow * 100)) : 0;
+      const rateSoFar = q !== null && q !== undefined && worked > 0 ? Income.rate(q, worked) : null;
+      // dates
+      const dates = dateFields(j).filter(([f]) => j[f]).map(([f, k]) => {
+        const ok = isDone(j, f), diff = dayDiff(j[f]);
+        const note = ok ? 'Done' : diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff < 0 ? `${-diff} day${diff === -1 ? '' : 's'} overdue` : `In ${diff} days`;
+        return `<div class="ddate"><div class="ddi">${k.icon}</div><div style="flex:1;min-width:0"><div style="font-weight:700">${esc(ok ? k.done : k.short)}</div>
+          <div class="hint">${esc(ok ? doneParts(j, f).actual : shortWhen(j, f))}</div></div><span class="dstat ${ok ? 'ok' : diff < 0 ? 'late' : diff <= 1 ? 'soon' : ''}">${note}</span></div>`;
+      }).join('');
+      const photos = ['before', 'after'].flatMap(kind => photosOf(j.id, kind).map((r, i) => ({ r, i, kind })));
+      ov.querySelector('.title').textContent = jobNo(j) ? 'Job ' + jobNo(j) : (enq ? 'Enquiry' : 'Job');
+      ov.querySelector('.body').innerHTML = `
+        <div class="dhead"><div class="av" style="width:58px;height:58px;font-size:19px;background:${avatarColor(j.customerName)}" aria-hidden="true">${esc(initials(j.customerName))}</div>
+          <div style="flex:1;min-width:0"><h1 class="dname">${esc(j.customerName)}</h1><div class="hint" style="font-size:14.5px">${esc(j.jobDescription)}</div></div></div>
+        <div class="dacts">${act(tel, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a11 11 0 0 0 6 6l1.5-2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 20 4 13.5 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></svg>', 'Call')}${act(sms, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5z"/></svg>', 'Message')}${act(dir, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg>', 'Directions', 'target="_blank" rel="noopener"')}
+          <button type="button" class="dact" data-dsheet><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg><span>Job sheet</span></button></div>
+        ${enq ? '' : `<div class="card"><div class="cap" style="margin-bottom:12px">Progress</div><div class="dsteps">${stepper}</div></div>`}
+        <div class="card"><div class="dmoney">${moneyCell(fixed ? 'Quote' : 'Estimate', q !== null && q !== undefined ? esc(fmt(q)) : '—', fixed ? 'fixed price' : 'hourly')}
+          ${moneyCell('Deposit', dep ? esc(fmt(dep)) : '—', dep ? (j.depositDate ? 'paid ' + esc(prettyDay(j.depositDate)) : 'paid') : 'none', dep ? 'good' : '')}
+          ${moneyCell('Balance', balance !== null ? esc(fmt(balance)) : '—', done ? 'job completed' : 'due on delivery')}</div></div>
+        ${allow ? `<div class="card"><div class="cap">Time vs quote</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin:10px 0"><span class="dbig">${Duration.decimalHours(worked)} h</span><span class="hint">of ${Duration.decimalHours(allow)} h the quote covers</span></div>
+          <div class="jbud-b" style="height:8px"><div style="width:${pct}%;${worked > allow ? 'background:#E5484D' : ''}"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:8px"><span style="font-weight:700;color:${worked > allow ? 'var(--red)' : 'var(--green-t)'}">${worked > allow ? 'Over the quote' : 'On track'}${rateSoFar !== null ? ' · ' + esc(fmt(rateSoFar)) + '/hr so far' : ''}</span>
+          <span class="hint">${worked > allow ? Duration.decimalHours(worked - allow) + ' h over' : Duration.decimalHours(allow - worked) + ' h left'}</span></div></div>` : ''}
+        ${dates ? `<div class="card"><div class="cap">Dates</div>${dates}</div>` : ''}
+        ${j.address ? `<div class="card"><div class="cap">Address</div><div style="margin-top:8px">${esc(j.address)}</div></div>` : ''}
+        ${j.notes ? `<div class="card"><div class="cap">Notes / job spec</div><div style="margin-top:8px;white-space:pre-wrap">${esc(j.notes)}</div></div>` : ''}
+        <div class="card"><div class="cap">Photos</div>${photos.length ? `<div class="dphotos">${photos.map(p => `<button type="button" class="ps-ph dph" data-view="${esc(j.id)}|${p.kind}|${p.i}" aria-label="${p.kind === 'before' ? 'Before' : 'After'} photo"><img src="${photoUrl(p.r)}" alt=""><span>${p.kind === 'before' ? 'Before' : 'After'}</span></button>`).join('')}</div>`
+          : '<div class="hint" style="margin-top:8px">No photos yet. Add them in Edit.</div>'}</div>`;
+      ov.querySelector('[data-dsheet]').onclick = () => openJobSheet(j.id);
+      bindPhotoViews(ov);
+    }
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Jobs</button><div class="title"></div><button class="linkbtn bold r" data-edit>Edit</button></div><div class="body"></div>`;
+    ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
+    ov.querySelector('[data-edit]').onclick = () => openJobEditor(id);
+    ov.refresh = render;
+    render();
+  }
+
   function openJobSheet(jobId) {
     const job = jobById(jobId);
     if (!job) return;
@@ -3597,6 +3891,7 @@ a { color: var(--link); text-decoration: none; }
     document.querySelectorAll('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
     if (name === 'map') renderMapTab();
     if (name === 'account') renderAccount();
+    if (name === 'money') renderMoneyTab();
   }
   document.querySelectorAll('#tabbar button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
