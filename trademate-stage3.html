@@ -2590,7 +2590,7 @@ a { color: var(--link); text-decoration: none; }
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span>📘 Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">28 Sep 2026, 19:03</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">3 Oct 2026, 21:46</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = openEarnings;
@@ -3462,8 +3462,8 @@ a { color: var(--link); text-decoration: none; }
     y += 20;
 
     // Before / After photos, sized to fit the space left on the page
-    const notesTop = PDF_H - M - 74;
-    const GAP_COL = 14, colW = (W - GAP_COL) / 2, photoTop = y + 20, avail = Math.max(40, notesTop - 16 - photoTop), g = 5;
+    const photosBottom = PDF_H - M;   // the photos use the rest of the page (no workshop-notes box any more)
+    const GAP_COL = 14, colW = (W - GAP_COL) / 2, photoTop = y + 20, avail = Math.max(40, photosBottom - 16 - photoTop), g = 5;
     const grid = n => {
       let best = null;
       for (let cs = 1; cs <= 4; cs++) {
@@ -3502,9 +3502,6 @@ a { color: var(--link); text-decoration: none; }
       }
     }
 
-    // Workshop notes (internal sheet: no customer sign-off)
-    heading(M, notesTop, W, 'WORKSHOP NOTES');
-    [34, 52, 70].forEach(dy => hline(M, PDF_W - M, notesTop + dy, EDGE, 0.6));
 
     // Assemble the PDF
     const enc = new TextEncoder();
@@ -3575,7 +3572,6 @@ a { color: var(--link); text-decoration: none; }
         ${['before', 'after'].map(k => `<h2>${k === 'before' ? 'Before' : 'After'}</h2>${photosOf(job.id, k).length
           ? `<div class="ps-photos">${photosOf(job.id, k).map((r, i) => `<button type="button" class="ps-ph" data-view="${esc(job.id)}|${k}|${i}"><img src="${photoUrl(r)}" alt=""><span>${esc(sheetDate(r.ts))}</span></button>`).join('')}</div>`
           : '<div class="ps-none">No photos</div>'}`).join('')}
-        <h2>Workshop notes</h2><div class="ps-lines"><div></div><div></div><div></div></div>
       </div><div class="sf" style="text-align:center">Tap Share for a one-page A4 PDF: Print, Save to Files, AirDrop or Mail.</div></div>`;
     ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
     bindPhotoViews(ov);
