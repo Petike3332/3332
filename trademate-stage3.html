@@ -566,6 +566,64 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 .clv { display: flex; flex-direction: column; align-items: flex-end; }
 .clv b { font-family: var(--display); font-weight: 600; }
 .clv span { font-size: 12px; color: var(--sub); }
+/* --- mockup details: date icons, Coming up --- */
+:root { --dblue: #2F6FD8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --dblue: #86B8FF; } }
+:root[data-theme="dark"] { --dblue: #86B8FF; }
+.dti { width: 38px; height: 38px; border-radius: 12px; background: var(--card2); flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.jobrow .daterow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.jobrow .daterow .dti { width: 34px; height: 34px; border-radius: 10px; background: var(--card); }
+.drt { flex: 1; min-width: 0; }
+.drt > div:last-child:not(:first-child) { margin-top: 2px; }
+.uprow { align-items: center; gap: 12px; }
+.upt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.upt b { font-size: 15px; }
+.upt span { color: var(--sub); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upw { font-weight: 700; font-size: 13.5px; text-align: right; white-space: nowrap; line-height: 1.3; }
+/* --- mockup details: Today stats --- */
+#test { color: var(--green-t); }
+#tstatus .pill { padding: 5px 12px; font-size: 12.5px; }
+/* --- mockup details: Jobs --- */
+.addbtn { width: 46px; height: 46px; border-radius: 23px; border: 0; background: var(--brass); color: var(--brass-ink); display: inline-flex; align-items: center; justify-content: center; padding: 0; margin-right: 16px; cursor: pointer; flex: none; }
+.rbtn:first-child { background: var(--card2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+/* --- mockup details: Account icon tiles --- */
+.arow { display: inline-flex; align-items: center; gap: 12px; }
+.atile { width: 32px; height: 32px; border-radius: 10px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.row.btnrow .arow { color: var(--link); }
+/* --- mockup details: Clients header + top client --- */
+.clhead { display: flex; justify-content: space-between; align-items: flex-end; padding: 2px 4px 14px 20px; }
+.clhead .addbtn { margin-right: 12px; }
+.topcl { display: flex; align-items: center; gap: 10px; cursor: default; }
+.tc-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; border: 0; background: none; padding: 0; color: var(--text); font: inherit; cursor: pointer; }
+/* --- mockup details: Money summary --- */
+.mhead { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 16px 6px 20px; }
+.mhead .rbtn { width: 40px; height: 40px; background: var(--card); }
+.mbig { font-family: var(--display); font-weight: 700; font-size: 44px; letter-spacing: -1.2px; margin: 4px 0 2px; }
+.mbars { display: flex; gap: 6px; margin-top: 14px; }
+.mbar { flex: 1; height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; }
+.mbar > div { width: 26px; min-height: 3px; border-radius: 8px; background: var(--fill2); }
+.mbar.on > div { background: var(--brass); }
+.mbar > span:last-child { font-size: 12px; color: var(--sub); white-space: nowrap; }
+.mbar.on > span:last-child { color: var(--text); font-weight: 700; }
+.mbv { font-size: 11.5px; font-weight: 700; color: var(--accent); }
+.mtiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 16px; }
+.mtile { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.mtile .mtk { display: flex; align-items: center; gap: 7px; color: var(--sub); font-size: 12.5px; font-weight: 500; }
+.mtile .mtv { font-family: var(--display); font-weight: 600; font-size: 21px; }
+.mtile .mts { font-size: 12px; color: var(--sub); }
+/* --- mockup details: map top bar --- */
+.mapttl { display: none; }
+.maptop { position: absolute; left: 12px; right: 12px; top: calc(10px + var(--safe-t)); z-index: 650; display: flex; flex-direction: column; gap: 10px; }
+.mapsearch { flex: 1; display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; border-radius: 16px; background: var(--nav); border: 1px solid var(--line); color: var(--sub);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.mapsearch input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 16px; }
+.rbtn.maploc { width: 48px; height: 48px; border-radius: 16px; background: var(--nav); position: static; box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 0 0 1px var(--line); }
+.mapchips { display: flex; gap: 8px; flex-wrap: wrap; }
+.mchip { height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--line); background: var(--nav); color: var(--text); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.mchip.on { background: var(--brass); color: var(--brass-ink); border-color: var(--brass); }
+.rbtn.maploc.on { color: var(--brass-ink); background: var(--brass); }
+.rbtn.maploc.busy svg { opacity: .4; }
 /* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
@@ -1218,6 +1276,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     });
     document.body.appendChild(bg);
   }
+  const hm = secs => { const m = Math.floor((secs || 0) / 60), h = Math.floor(m / 60); return h ? `${h}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`; };
   const initials = n => { const w = String(n || '').trim().split(/\s+/).filter(Boolean); return ((w[0] ? Array.from(w[0])[0] : '') + (w[1] ? Array.from(w[1])[0] : (w[0] ? (Array.from(w[0])[1] || '') : ''))).toUpperCase() || '?'; };
   const AVATAR_TONES = ['#E8C78E', '#9FC4FF', '#8EE0B6', '#F2B8A0', '#C9B8F5', '#B7C3D9'];
   const avatarColor = n => { let h = 0; for (const ch of String(n || '')) h = (h * 31 + ch.codePointAt(0)) >>> 0; return AVATAR_TONES[h % AVATAR_TONES.length]; };
@@ -1406,10 +1465,11 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     const live = sh.isRunning && !sh.isOnBreak;
     const d = new Date(now);
     $('wallclock').innerHTML = `<span class="pill ${live ? 'green' : 'gray'} num">${pad2(d.getHours())}:${pad2(d.getMinutes())}</span>`;
-    $('tstatus').innerHTML = !sh.isRunning ? '<span class="pill gray">● Stopped</span>' : sh.isOnBreak ? '<span class="pill orange">● On break</span>' : '<span class="pill green">● Running</span>';
+    const since = sh.isRunning && sh.shiftStart ? ' · since ' + hhmm(sh.shiftStart) : '';
+    $('tstatus').innerHTML = !sh.isRunning ? '<span class="pill gray">● Stopped</span>' : sh.isOnBreak ? '<span class="pill orange">● On break</span>' : `<span class="pill green">● Running${since}</span>`;
     // ring
     const worked = Shift.worked(sh, now);
-    $('tclock').textContent = Duration.clock(worked);
+    $('tclock').textContent = Duration.clock(worked).replace(/^0(\d:)/, '$1');
     let allowance = null;
     if (job && job.quotePence !== null && job.quotePence !== undefined && job.ratePence) allowance = Money.allowanceSeconds(job.quotePence, job.ratePence);
     const used = (job ? totalWorked(job) : 0) + worked;
@@ -1431,7 +1491,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     // Fixed-price jobs earn their quote, so the live figure is the time's value, not earnings.
     const tj = jobById(activeJobID());
     $('test-l').textContent = tj && Income.pricing(tj) === 'fixed' ? 'Time value' : 'Est. earnings';
-    $('tbreaks').textContent = Duration.short(Shift.breakTime(sh, now));
+    $('tbreaks').textContent = hm(Shift.breakTime(sh, now));
     const main = $('tmain');
     main.className = 'btn ' + (sh.isRunning ? 'stop' : 'start');
     main.innerHTML = sh.isRunning ? '<span class="sq" aria-hidden="true">■</span> Stop' : '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l11-7z" fill="currentColor"/></svg> Start';
@@ -1449,7 +1509,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     const secs = todayLogs.reduce((s, l) => s + l.workedSeconds, 0) + liveSecs;
     const livePence = sh.isRunning && sh.jobID ? Money.earningsPence(Math.floor(liveSecs), activeRate()) : 0;
     const pence = todayLogs.reduce((s, l) => s + TM.entryEarnings(entryOf(l)), 0) + livePence;
-    $('tworked').textContent = Duration.clock(secs);
+    $('tworked').textContent = hm(secs);
     if (comingDay !== startOfDay(now)) renderComingUp();   // "today / tomorrow" labels roll over at midnight
     $('ttoday').innerHTML = `<div class="cap">Today</div><div class="two" style="margin-top:10px">
       <div><div class="hint">Hours worked</div><div class="big">${Duration.hours(secs)}</div></div>
@@ -1478,12 +1538,12 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
   // ---------- Dates: collection / delivery ----------
   // Who moves the item: the business (collect / deliver) or the customer (drops off / picks up)
   const DATE_KINDS = {
-    collect: { short: 'Collect', long: 'Collection date', on: 'Collect on', icon: '📥', done: 'Collected', mark: 'Mark as collected' },
-    dropoff: { short: 'Drop-off', long: 'Drop-off date (customer brings it)', on: 'Drop-off on', icon: '🚗', done: 'Dropped off', mark: 'Mark as dropped off' },
-    deliver: { short: 'Deliver', long: 'Due / delivery date', on: 'Deliver on', icon: '📦', done: 'Delivered', mark: 'Mark as delivered' },
-    pickup: { short: 'Pick-up', long: 'Pick-up date (customer collects it)', on: 'Pick-up on', icon: '🚗', done: 'Picked up', mark: 'Mark as picked up' },
-    meetCustomer: { short: 'Meeting', card: "Meeting at customer's", long: "Meeting (at customer's address)", on: 'Meeting on', icon: '🤝', done: 'Meeting done', mark: 'Mark meeting as done' },
-    meetWorkshop: { short: 'Meeting', card: 'Meeting at workshop', long: 'Meeting (at my workshop)', on: 'Meeting on', icon: '🤝', done: 'Meeting done', mark: 'Mark meeting as done' }
+    collect: { short: 'Collect', long: 'Collection date', on: 'Collect on', svg: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h5l1.5 3h5L16 13h5M5 5h14l2 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5l2-8z"/></svg>', icon: '📥', done: 'Collected', mark: 'Mark as collected' },
+    dropoff: { short: 'Drop-off', long: 'Drop-off date (customer brings it)', on: 'Drop-off on', svg: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h5l1.5 3h5L16 13h5M5 5h14l2 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5l2-8z"/></svg>', icon: '🚗', done: 'Dropped off', mark: 'Mark as dropped off' },
+    deliver: { short: 'Deliver', long: 'Due / delivery date', on: 'Deliver on', svg: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 9h4l3 3.5V16h-7z"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/></svg>', icon: '📦', done: 'Delivered', mark: 'Mark as delivered' },
+    pickup: { short: 'Pick-up', long: 'Pick-up date (customer collects it)', on: 'Pick-up on', svg: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 9h4l3 3.5V16h-7z"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/></svg>', icon: '🚗', done: 'Picked up', mark: 'Mark as picked up' },
+    meetCustomer: { short: 'Meeting', card: "Meeting at customer's", long: "Meeting (at customer's address)", on: 'Meeting on', svg: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.3 3.5-5 6.5-5s5.5 1.7 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.3 2.2 3.8 5"/></svg>', icon: '🤝', done: 'Meeting done', mark: 'Mark meeting as done' },
+    meetWorkshop: { short: 'Meeting', card: 'Meeting at workshop', long: 'Meeting (at my workshop)', on: 'Meeting on', svg: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.3 3.5-5 6.5-5s5.5 1.7 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.3 2.2 3.8 5"/></svg>', icon: '🤝', done: 'Meeting done', mark: 'Mark meeting as done' }
   };
   const dateFields = j => [
     ['meetingDate', DATE_KINDS[j.meetingPlace === 'workshop' ? 'meetWorkshop' : 'meetCustomer']],
@@ -1574,19 +1634,20 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     return at ? `${booked} (${word} ${isoOf(at) === j[f] ? 'at ' + hhmm(at) : longDay(isoOf(at)) + ' at ' + hhmm(at)})` : `${booked} (${word})`;
   };
   const whenLabel = diff => diff < 0 ? `${-diff} day${diff === -1 ? '' : 's'} overdue` : diff === 0 ? 'today' : diff === 1 ? 'tomorrow' : `in ${diff} days`;
+  const tileColor = (done, diff) => done ? 'var(--green-t)' : diff < 0 ? 'var(--red)' : diff <= 1 ? 'var(--orange-t)' : 'var(--dblue)';
+  const dateTile = (k, color) => `<span class="dti" style="color:${color}">${k.svg}</span>`;
   const dateColor = diff => diff < 0 ? 'var(--red)' : diff <= 1 ? 'var(--orange-t)' : 'var(--sub)';
 
   function dateRows(j) {
     return dateFields(j).filter(([f]) => j[f]).map(([f, k]) => {
       if (isDone(j, f)) {
         const dp = doneParts(j, f);
-        return `<div class="daterow" style="color:var(--green-t)">✅ ${k.done}: <b>${esc(dp.actual)}</b>${dp.booked ? ` <span style="color:var(--sub)">(booked ${esc(dp.booked)})</span>` : ''}
-          <button type="button" class="minilink" data-dtime="${esc(j.id)}" data-f="${f}">Change</button><button type="button" class="minilink" data-undone="${esc(j.id)}" data-f="${f}">Undo</button></div>`;
+        return `<div class="daterow" style="color:var(--green-t)">${dateTile(k, 'var(--green-t)')}<div class="drt"><div>${k.done}: <b>${esc(dp.actual)}</b>${dp.booked ? ` <span style="color:var(--sub)">(booked ${esc(dp.booked)})</span>` : ''}</div>
+          <div><button type="button" class="minilink" data-dtime="${esc(j.id)}" data-f="${f}">Change</button><button type="button" class="minilink" data-undone="${esc(j.id)}" data-f="${f}">Undo</button></div></div></div>`;
       }
       const open = j.status !== 'Completed' && j.status !== 'Declined', diff = dayDiff(j[f]);
-      return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${k.icon} ${k.card || k.short}: <b>${esc(shortWhen(j, f))}</b>${open ? ' · ' + whenLabel(diff) : ''}${f === 'meetingDate' && j.meetingNote ? ` <span class="muted">(${esc(j.meetingNote)})</span>` : ''}
-        ${open ? `<button type="button" class="minilink" data-done="${esc(j.id)}" data-f="${f}">✓ Mark ${esc(k.done.toLowerCase())}</button>` : ''}
-        <button type="button" class="minilink" data-cal="${esc(j.id)}" data-f="${f}">+ Calendar</button></div>`;
+      return `<div class="daterow" style="color:${open ? dateColor(diff) : 'var(--sub)'}">${dateTile(k, open ? tileColor(false, diff) : 'var(--sub)')}<div class="drt"><div>${k.card || k.short}: <b>${esc(shortWhen(j, f))}</b>${open ? ' · ' + whenLabel(diff) : ''}${f === 'meetingDate' && j.meetingNote ? ` <span class="muted">(${esc(j.meetingNote)})</span>` : ''}</div>
+        <div>${open ? `<button type="button" class="minilink" data-done="${esc(j.id)}" data-f="${f}">✓ Mark ${esc(k.done.toLowerCase())}</button>` : ''}<button type="button" class="minilink" data-cal="${esc(j.id)}" data-f="${f}">+ Calendar</button></div></div></div>`;
     }).join('');
   }
 
@@ -1601,8 +1662,9 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     });
     ev.sort((a, b) => a.diff - b.diff || (a.time || '99:99').localeCompare(b.time || '99:99'));
     box.innerHTML = `<div class="cap">Coming up</div>` + (ev.length
-      ? ev.slice(0, 6).map((e, i) => `<div class="uprow" data-ev="${i}"><span>${e.icon} <b>${esc(e.label)}</b> · ${esc(e.j.customerName)}</span>
-          <span style="color:${dateColor(e.diff)};font-weight:600;white-space:nowrap">${whenLabel(e.diff)}${e.time ? ' · ' + e.time : ''}</span></div>`).join('')
+      ? ev.slice(0, 6).map((e, i) => { const w = whenLabel(e.diff); return `<div class="uprow" data-ev="${i}">${dateTile(e.k, tileColor(false, e.diff))}
+          <span class="upt"><b>${esc(e.label)}</b><span>${esc(e.j.customerName)} · ${esc(e.j.jobDescription)}</span></span>
+          <span class="upw" style="color:${e.diff <= 1 ? dateColor(e.diff) : 'var(--sub)'}">${esc(w.charAt(0).toUpperCase() + w.slice(1))}${e.time ? '<br>' + e.time : ''}</span></div>`; }).join('')
       : '<div class="hint" style="margin-top:8px">No dates set yet. Add a collection or delivery date to a job.</div>');
     box.querySelectorAll('[data-ev]').forEach(r => r.onclick = () => {
       const e = ev[+r.dataset.ev];
@@ -1754,7 +1816,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
   function renderJobs() {
     $('tab-jobs').innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;padding-right:8px">
-        <div class="large">Jobs</div><button class="linkbtn" id="jadd" aria-label="New job" style="font-size:30px">＋</button></div>
+        <div class="large">Jobs</div><button class="addbtn" id="jadd" aria-label="New job"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
       <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <input type="search" id="jsearch" placeholder="Customer, job, address or #number" value="${esc(S.jobSearch)}"></div>
       <div id="jtabs"></div>
@@ -1790,7 +1852,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       tabs.innerHTML = S.jobs.length && !q ? `<div class="seg" style="margin-top:0">
         <button data-jt="enquiries" class="${S.jobTab === 'enquiries' ? 'on' : ''}">Enquiries ${enquiries.length}</button>
         <button data-jt="active" class="${S.jobTab === 'active' ? 'on' : ''}">Active ${active.length}</button>
-        <button data-jt="completed" class="${S.jobTab === 'completed' ? 'on' : ''}">Completed ${completed.length}</button></div>` : '';
+        <button data-jt="completed" class="${S.jobTab === 'completed' ? 'on' : ''}">Done ${completed.length}</button></div>` : '';
       tabs.querySelectorAll('[data-jt]').forEach(bt => bt.onclick = () => { S.jobTab = bt.dataset.jt; renderJobList(); });
     }
     // Searching looks through both lists; otherwise show the chosen tab. Completed jobs get month headings.
@@ -2402,16 +2464,28 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
   // MAP TAB (JobMapView.swift)
   // =========================================================================================
   let jobMap = null, jobMarkers = null, selectedMapJob = null;
+  let mapFilter = 'all', mapQuery = '';
   function renderMapTab() {
     const tab = $('tab-map');
     if (!tab.dataset.built) {
       tab.dataset.built = '1';
-      tab.innerHTML = `<div id="jobmap"></div><div class="mapttl">Job map</div>
-        <button type="button" class="locbtn" id="locbtn" aria-label="Show my location"><svg viewBox="0 0 24 24"><path d="M3 11L21 3l-8 18-2-8-8-2z"/></svg></button>
+      tab.innerHTML = `<div id="jobmap"></div>
+        <div class="maptop"><div style="display:flex;gap:10px"><label class="mapsearch"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><input type="search" id="mapq" placeholder="Search jobs on the map" aria-label="Search jobs on the map"></label>
+          <button type="button" class="rbtn maploc" id="locbtn" aria-label="Show my location"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button></div>
+          <div class="mapchips" id="mapchips"></div></div>
         <div id="mapcard"></div><div id="mapempty"></div>`;
       $('locbtn').onclick = locateMe;
+      $('mapq').oninput = () => { mapQuery = $('mapq').value.trim().toLowerCase(); renderMapTab(); };
     }
-    const located = S.jobs.filter(JobLocation.has);
+    // filter chips (Today / This week / All) and search
+    const base = S.jobs.filter(j => JobLocation.has(j) && j.status !== 'Declined');
+    const openIn = (j, days) => dateFields(j).some(([f]) => j[f] && !isDone(j, f) && dayDiff(j[f]) <= days && j.status !== 'Completed');
+    const inFilter = (j, mf) => mf === 'today' ? openIn(j, 0) : mf === 'week' ? openIn(j, 6) : true;
+    const counts = { today: base.filter(j => inFilter(j, 'today')).length, week: base.filter(j => inFilter(j, 'week')).length, all: base.length };
+    $('mapchips').innerHTML = [['today', 'Today'], ['week', 'This week'], ['all', 'All jobs']].map(([k, l]) => `<button type="button" class="mchip${mapFilter === k ? ' on' : ''}" data-mf="${k}">${l}${k !== 'all' ? ' · ' + counts[k] : ''}</button>`).join('');
+    $('mapchips').querySelectorAll('[data-mf]').forEach(b => b.onclick = () => { mapFilter = b.dataset.mf; renderMapTab(); });
+    const located = base.filter(j => inFilter(j, mapFilter) && (!mapQuery || [j.customerName, j.jobDescription, j.address, jobNo(j)].some(v => (v || '').toLowerCase().includes(mapQuery))));
+    if (selectedMapJob && !located.some(j => j.id === selectedMapJob)) { selectedMapJob = null; }
     $('mapempty').innerHTML = located.length ? '' : `<div class="mapempty"><div style="font-size:36px">🗺️</div><b>No jobs on the map yet</b><div class="hint">Edit a job and tap Find address to place it here.</div></div>`;
     if (!hasLeaflet()) { $('jobmap').innerHTML = '<div class="empty">Map unavailable. Check your connection and reload.</div>'; return; }
     if (!jobMap) {
@@ -2776,11 +2850,11 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         <div style="flex:1;min-width:0"><div style="font-weight:700">${bTitle}</div><div class="hint">Jobs, clients, time and photos</div></div>
         <button type="button" class="btn tint small" id="ac-bk-now"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg> Back up</button></div>
       <div class="sh">Work</div><div class="group">
-        <div class="row tap chev" id="ac-earn"><span>📊 Earnings summary</span><span></span></div>
-        <div class="row tap chev" id="ac-logs"><span>🗒️ Time logs</span><span></span></div>
-        <div class="row tap chev" id="ac-fore"><span>📈 Income forecast</span><span></span></div>
-        <div class="row tap chev" id="ac-clients"><span>👥 Clients</span><span class="v">${S.clients.length || ''}</span></div>
-        <div class="row btnrow tap" id="ac-add">⊕ Add time manually</div></div>
+        <div class="row tap chev" id="ac-earn"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h12v4M4 7v11a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14.5h.01"/></svg></span>Earnings summary</span><span></span></div>
+        <div class="row tap chev" id="ac-logs"><span class="arow"><span class="atile" style="background:#C9B8F5"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></span>Time logs</span><span></span></div>
+        <div class="row tap chev" id="ac-fore"><span class="arow"><span class="atile" style="background:#8EE0B6"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 6-6 4 4 8-8M15 7h6v6"/></svg></span>Income forecast</span><span></span></div>
+        <div class="row tap chev" id="ac-clients"><span class="arow"><span class="atile" style="background:#9FC4FF"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.3 3.5-5 6.5-5s5.5 1.7 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.3 2.2 3.8 5"/></svg></span>Clients</span><span class="v">${S.clients.length || ''}</span></div>
+        <div class="row btnrow tap" id="ac-add"><span class="arow"><span class="atile" style="background:#B7C3D9"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Add time manually</span></div></div>
       ${isIOS() && !isStandalone() ? `<div class="notice" style="margin-top:16px">📲 Add TradeMate to your Home Screen<div style="font-weight:400;margin-top:6px">
         Safari can delete this site's data if you don't open it for 7 days. Apps on the Home Screen are kept.
         <b>First tap Export backup below</b>, then in Safari tap Share → Add to Home Screen, open TradeMate from the Home Screen,
@@ -2788,8 +2862,8 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Backup</div><div class="group">
         <div class="row"><span>Last backup</span><span class="v" style="${bstat.warn ? 'color:var(--orange-t);font-weight:600' : ''}">${esc(bstat.label)}</span></div>
         <div class="row"><span>Photo storage used</span><span class="v" style="${overLimit ? 'color:var(--orange-t);font-weight:600' : ''}">${esc(formatBytes(photoBytes))}</span></div>
-        <div class="row btnrow tap" id="ac-export">⬆️ Export backup</div>
-        <div class="row btnrow tap" id="ac-restore">⬇️ Restore from backup</div></div>
+        <div class="row btnrow tap" id="ac-export"><span class="arow"><span class="atile" style="background:#8EE0B6"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>Export backup</span></div>
+        <div class="row btnrow tap" id="ac-restore"><span class="arow"><span class="atile" style="background:#F2B8A0"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>Restore from backup</span></div></div>
       ${bstat.warn ? `<div class="sf" style="color:var(--orange-t)">⚠️ ${esc(bstat.note)}</div>` : ''}
       ${overLimit ? `<div class="sf" style="color:var(--orange-t)">⚠️ Photos are using over 200 MB in this browser. Consider exporting a backup and removing photos from older completed jobs to keep this device running smoothly.</div>` : ''}
       <div class="sf">Jobs, time logs, settings and photos are stored only in this browser on this device. They don't sync anywhere, so back them up regularly. Find address sends what you type to free map services (OpenStreetMap, Photon, postcodes.io) to look it up. Backup files contain your customers' names, phone numbers and addresses, so keep them somewhere safe.</div>
@@ -2802,9 +2876,9 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sf">A new rate applies to new jobs and new time only. Existing jobs and past logs keep their rates.</div>
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
-      <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span>📘 Quick guide</span><span></span></div></div>
+      <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">3 Oct 2026, 23:16</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">3 Oct 2026, 23:41</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
@@ -2851,7 +2925,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     const st = host ? (moneyState = moneyState || { period: 'month', anchor: Date.now(), filter: { type: 'all' } }) : null;
     let period = st ? st.period : 'week', anchor = st ? st.anchor : Date.now(), filter = st ? st.filter : { type: 'all' };
     ov.innerHTML = host ? `<h1 class="large">Money</h1><div id="ea"></div>`
-      : `<div class="navbar"><button class="linkbtn" data-x>‹ Account</button><div class="title">Earnings</div><span></span></div><div class="body" id="ea"></div>`;
+      : `<div class="navbar"><button class="linkbtn" data-x>‹ Money</button><div class="title">Earnings</div><span></span></div><div class="body" id="ea"></div>`;
     if (!host) ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
     function title(iv) {
       if (!iv) return 'All time';
@@ -2926,7 +3000,72 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     render();
   }
   let moneyRender = null;
-  const renderMoneyTab = () => { const t = $('tab-money'); if (t) openEarnings(t); };
+  const renderMoneyTab = () => { moneyRender = renderMoneySummary; renderMoneySummary(); };
+  // =========================================================================================
+  // MONEY TAB — summary (Week / Month / Year); "Earnings details" opens the full screen
+  // =========================================================================================
+  const moneyView = { period: 'month', anchor: Date.now() };
+  function moneyInterval(p, a) {
+    if (p === 'year') { const y = new Date(a).getFullYear(); return { start: new Date(y, 0, 1).getTime(), end: new Date(y + 1, 0, 1).getTime() }; }
+    return Period.interval(p, a);
+  }
+  function moneyShift(p, a, n) {
+    if (p === 'year') { const d = new Date(a); return new Date(d.getFullYear() + n, d.getMonth(), Math.min(d.getDate(), 28)).getTime(); }
+    return Period.shifted(p, a, n);
+  }
+  const moneyShort = pence => pence >= 100000 ? '£' + (pence / 100000).toFixed(1).replace(/\.0$/, '') + 'k' : '£' + Math.round(pence / 100);
+  function moneyLabel(p, iv, short) {
+    const d = new Date(iv.start);
+    if (p === 'year') return String(d.getFullYear());
+    if (p === 'month') return short ? MON[d.getMonth()] : `${MONTH[d.getMonth()]} ${d.getFullYear()}`;
+    return short ? `${d.getDate()} ${MON[d.getMonth()]}` : `Week of ${d.getDate()} ${MON[d.getMonth()]}`;
+  }
+  function renderMoneySummary() {
+    const box = $('tab-money'); if (!box) return;
+    const p = moneyView.period, info = forecastInfo();
+    const incomeOf = iv => Income.period(S.jobs, info, iv, { type: 'all' });
+    const hoursOf = iv => S.logs.reduce((t, l) => t + (l.start >= iv.start && l.start < iv.end ? (l.workedSeconds || 0) : 0), 0);
+    const iv = moneyInterval(p, moneyView.anchor), cur = incomeOf(iv), secs = hoursOf(iv);
+    const prevIv = moneyInterval(p, moneyShift(p, moneyView.anchor, -1)), prev = incomeOf(prevIv).totalPence;
+    const delta = prev > 0 ? Math.round((cur.totalPence - prev) / prev * 100) : null;
+    const bars = [-5, -4, -3, -2, -1, 0].map(n => { const v = moneyInterval(p, moneyShift(p, moneyView.anchor, n)); return { iv: v, pence: incomeOf(v).totalPence, on: n === 0 }; });
+    const max = Math.max(1, ...bars.map(b => b.pence));
+    const allIn = Income.rate(cur.totalPence, secs);
+    // booked for the month after this one (from the income forecast)
+    const nm = new Date(); nm.setDate(1); nm.setMonth(nm.getMonth() + 1);
+    const nmKey = `${nm.getFullYear()}-${String(nm.getMonth() + 1).padStart(2, '0')}`, fm = Forecast.month(S.jobs, info, nmKey);
+    // balances due on active jobs: quote minus deposit
+    const active = S.jobs.filter(j => !isEnquiry(j) && j.status !== 'Completed' && j.quotePence !== null && j.quotePence !== undefined);
+    const due = active.reduce((t, j) => t + Math.max(0, j.quotePence - (j.depositPence > 0 ? j.depositPence : 0)), 0);
+    const tile = (k, v, sub, icon) => `<div class="mtile"><div class="mtk">${icon}${k}</div><div class="mtv">${v}</div><div class="mts">${sub}</div></div>`;
+    const prevName = p === 'month' ? MON[new Date(prevIv.start).getMonth()] : p === 'year' ? String(new Date(prevIv.start).getFullYear()) : 'last week';
+    box.innerHTML = `
+      <div class="mhead"><h1 class="large" style="margin:0">Money</h1><div style="display:flex;gap:8px">
+        <button type="button" class="rbtn" data-mn="-1" aria-label="Previous"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+        <button type="button" class="rbtn" data-mn="1" aria-label="Next"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button></div></div>
+      <div class="seg" style="margin-top:4px">${['week', 'month', 'year'].map(x => `<button data-mp="${x}" class="${x === p ? 'on' : ''}">${x.charAt(0).toUpperCase() + x.slice(1)}</button>`).join('')}</div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="hint" style="font-size:14px;font-weight:500">Income · ${esc(moneyLabel(p, iv))}</span>
+          ${delta !== null ? `<span class="pill ${delta >= 0 ? 'green' : 'orange'}">${delta >= 0 ? '↗' : '↘'} ${Math.abs(delta)}% vs ${esc(prevName)}</span>` : ''}</div>
+        <div class="mbig">${esc(fmt(cur.totalPence))}</div>
+        <div class="hint" style="font-size:13.5px">${cur.rows.length} completed ${cur.rows.length === 1 ? 'job' : 'jobs'} · ${Duration.decimalHours(secs)} hrs worked</div>
+        <div class="mbars">${bars.map(b => `<div class="mbar${b.on ? ' on' : ''}">${b.on && b.pence ? `<span class="mbv">${esc(moneyShort(b.pence))}</span>` : ''}<div style="height:${Math.round(b.pence / max * 100)}px"></div><span>${esc(moneyLabel(p, b.iv, true))}</span></div>`).join('')}</div>
+      </div>
+      <div class="mtiles">
+        ${tile('Job rate', cur.effectiveRatePence !== null ? esc(fmt(cur.effectiveRatePence)) + '/hr' : '—', 'income ÷ hours on jobs', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 6.5A4 4 0 0 0 9 9v9M6.5 13h7M6 19h12"/></svg>')}
+        ${tile('All-in rate', allIn !== null ? esc(fmt(allIn)) + '/hr' : '—', 'incl. admin &amp; travel', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>')}
+        ${tile('Booked ' + MONTH[nm.getMonth()], esc(fmt(fm.bookedTotal)), `${fm.booked.length} ${fm.booked.length === 1 ? 'job' : 'jobs'} scheduled`, '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>')}
+        ${tile('Balances due', esc(fmt(due)), `on ${active.length} active ${active.length === 1 ? 'job' : 'jobs'}`, '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h12v4M4 7v11a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14.5h.01"/></svg>')}
+      </div>
+      <div class="group" style="margin-top:16px">
+        <div class="row tap chev" id="m-details"><span>Earnings details</span><span class="v">stats, filters, jobs</span></div>
+        <div class="row tap chev" id="m-forecast"><span>Income forecast</span><span></span></div></div>`;
+    box.querySelectorAll('[data-mp]').forEach(b => b.onclick = () => { moneyView.period = b.dataset.mp; renderMoneySummary(); });
+    box.querySelectorAll('[data-mn]').forEach(b => b.onclick = () => { moneyView.anchor = moneyShift(moneyView.period, moneyView.anchor, +b.dataset.mn); renderMoneySummary(); });
+    $('m-details').onclick = () => openEarnings();
+    $('m-forecast').onclick = () => openForecast();
+  }
+
 
 
 
@@ -2977,10 +3116,8 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
   function openClients() {
     const ov = pushOverlay('page');
     let q = '';
-    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Account</button><div class="title">Clients</div>
-      <button class="linkbtn bold r" data-add aria-label="Add client" style="font-size:24px">+</button></div><div class="body" id="cl"></div>`;
+    ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Account</button><div class="title"></div><span></span></div><div class="body" id="cl"></div>`;
     ov.querySelector('[data-x]').onclick = () => closeOverlay(ov);
-    ov.querySelector('[data-add]').onclick = () => openClientEditor(null);
     function render() {
       const body = ov.querySelector('#cl');
       const unlinked = unlinkedCustomers();
@@ -2990,10 +3127,14 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       const statsOf = new Map(list.map(c => [c.id, clientStats(c, info)]));
       const top = !q && list.length > 1 ? list.reduce((b, c) => (statsOf.get(c.id).spent > (b ? statsOf.get(b.id).spent : 0) ? c : b), null) : null;
       const topSt = top ? statsOf.get(top.id) : null;
+      const allStats = S.clients.map(c => clientStats(c, info)), returning = allStats.filter(x => x.jobs.length > 1).length;
       body.innerHTML = `
+        <div class="clhead"><div><h1 class="large" style="margin:0">Clients</h1><div class="hint" style="font-size:14px">${S.clients.length} saved${returning ? ` · ${returning} returning` : ''}</div></div>
+          <button type="button" class="addbtn" data-add aria-label="Add client"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
         ${S.clients.length ? `<div class="search" style="margin-top:8px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="cl-q" placeholder="Search clients" value="${esc(q)}"></div>` : ''}
-        ${top && topSt.spent > 0 ? `<button type="button" class="card topcl" data-c="${esc(top.id)}"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avatarColor(top.name)}" aria-hidden="true">${esc(initials(top.name))}</div>
-          <div style="flex:1;min-width:0;text-align:left"><div class="topk">Top client</div><div style="font-weight:700;font-size:17px">${esc(top.name)}</div><div class="hint">${topSt.jobs.length} ${topSt.jobs.length === 1 ? 'job' : 'jobs'} · ${esc(fmt(topSt.spent))} lifetime</div></div></button>` : ''}
+        ${top && topSt.spent > 0 ? `<div class="card topcl"><button type="button" class="tc-main" data-c="${esc(top.id)}"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avatarColor(top.name)}" aria-hidden="true">${esc(initials(top.name))}</div>
+          <div style="flex:1;min-width:0;text-align:left"><div class="topk">Top client</div><div style="font-weight:700;font-size:17px">${esc(top.name)}</div><div class="hint">${topSt.jobs.length} ${topSt.jobs.length === 1 ? 'job' : 'jobs'} · ${esc(fmt(topSt.spent))} lifetime</div></div></button>
+          ${phoneUrl(top.phone) ? `<a class="rbtn" href="${phoneUrl(top.phone)}" aria-label="Call ${esc(top.name)}"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a11 11 0 0 0 6 6l1.5-2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 20 4 13.5 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></svg></a>` : ''}</div>` : ''}
         <div class="group" style="margin-top:12px">${list.length ? list.map(c => { const st = statsOf.get(c.id); return `<div class="row tap chev" data-c="${esc(c.id)}"><div class="av" style="width:44px;height:44px;font-size:15px;background:${avatarColor(c.name)}" aria-hidden="true">${esc(initials(c.name))}</div><div style="min-width:0;flex:1">
             <div style="font-weight:700">${esc(c.name)}</div><div class="hint">${esc([`${st.jobs.length} ${st.jobs.length === 1 ? 'job' : 'jobs'}`, st.last ? 'last ' + sheetDate(st.last) : c.phone].filter(Boolean).join(' · '))}</div></div>
             <span class="clv">${st.spent ? `<b class="num">${esc(fmt(st.spent))}</b><span>lifetime</span>` : ''}</span></div>`; }).join('')
@@ -3004,6 +3145,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       const qi = body.querySelector('#cl-q');
       if (qi) qi.oninput = () => { q = normName(qi.value); const pos = qi.selectionStart; render(); const n = ov.querySelector('#cl-q'); n.focus(); n.setSelectionRange(pos, pos); };
       const imp = body.querySelector('#cl-import'); if (imp) imp.onclick = importClientsFromJobs;
+      body.querySelector('[data-add]').onclick = () => openClientEditor(null);
     }
     ov.refresh = render;
     render();
@@ -3790,7 +3932,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       const dates = dateFields(j).filter(([f]) => j[f]).map(([f, k]) => {
         const ok = isDone(j, f), diff = dayDiff(j[f]);
         const note = ok ? 'Done' : diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff < 0 ? `${-diff} day${diff === -1 ? '' : 's'} overdue` : `In ${diff} days`;
-        return `<div class="ddate"><div class="ddi">${k.icon}</div><div style="flex:1;min-width:0"><div style="font-weight:700">${esc(ok ? k.done : k.short)}</div>
+        return `<div class="ddate"><div class="ddi" style="color:${tileColor(ok, diff)}">${k.svg}</div><div style="flex:1;min-width:0"><div style="font-weight:700">${esc(ok ? k.done : k.short)}</div>
           <div class="hint">${esc(ok ? doneParts(j, f).actual : shortWhen(j, f))}</div></div><span class="dstat ${ok ? 'ok' : diff < 0 ? 'late' : diff <= 1 ? 'soon' : ''}">${note}</span></div>`;
       }).join('');
       const photos = ['before', 'after'].flatMap(kind => photosOf(j.id, kind).map((r, i) => ({ r, i, kind })));
@@ -3812,9 +3954,16 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         ${dates ? `<div class="card"><div class="cap">Dates</div>${dates}</div>` : ''}
         ${j.address ? `<div class="card"><div class="cap">Address</div><div style="margin-top:8px">${esc(j.address)}</div></div>` : ''}
         ${j.notes ? `<div class="card"><div class="cap">Notes / job spec</div><div style="margin-top:8px;white-space:pre-wrap">${esc(j.notes)}</div></div>` : ''}
-        <div class="card"><div class="cap">Photos</div>${photos.length ? `<div class="dphotos">${photos.map(p => `<button type="button" class="ps-ph dph" data-view="${esc(j.id)}|${p.kind}|${p.i}" aria-label="${p.kind === 'before' ? 'Before' : 'After'} photo"><img src="${photoUrl(p.r)}" alt=""><span>${p.kind === 'before' ? 'Before' : 'After'}</span></button>`).join('')}</div>`
-          : '<div class="hint" style="margin-top:8px">No photos yet. Add them in Edit.</div>'}</div>`;
+        <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="cap">Photos</div><button type="button" class="btn tint small" data-dphoto><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> Add</button></div>${photos.length ? `<div class="dphotos">${photos.map(p => `<button type="button" class="ps-ph dph" data-view="${esc(j.id)}|${p.kind}|${p.i}" aria-label="${p.kind === 'before' ? 'Before' : 'After'} photo"><img src="${photoUrl(p.r)}" alt=""><span>${p.kind === 'before' ? 'Before' : 'After'}</span></button>`).join('')}</div>`
+          : '<div class="hint" style="margin-top:8px">No photos yet.</div>'}</div>`;
       ov.querySelector('[data-dsheet]').onclick = () => openJobSheet(j.id);
+      ov.querySelector('[data-dphoto]').onclick = () => {
+        openJobEditor(j.id);
+        setTimeout(() => {   // open "More details" if needed and bring the photos into view
+          const more = document.querySelector('#je-more'); if (more && more.style.display === 'none') { const b = document.querySelector('#je-more-btn'); if (b) b.click(); }
+          const ph = document.querySelector('[data-add=before]'); if (ph) ph.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 350);
+      };
       bindPhotoViews(ov);
     }
     ov.innerHTML = `<div class="navbar"><button class="linkbtn" data-x>‹ Jobs</button><div class="title"></div><button class="linkbtn bold r" data-edit>Edit</button></div><div class="body"></div>`;
