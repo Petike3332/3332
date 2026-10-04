@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!-- © 2026 Peter Mate. All rights reserved.
+     This app, its code, design, text and graphics are the property of Peter Mate.
+     No part may be copied, modified or redistributed without written permission.
+     Third-party parts keep their own licences (Leaflet: BSD-2-Clause; map data: OpenStreetMap contributors; fonts: SIL Open Font License). -->
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
@@ -698,6 +702,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 .gicon { width: 96px; height: 96px; border-radius: 28px; background: var(--card2); box-shadow: inset 0 0 0 1px var(--line); color: var(--accent);
   display: flex; align-items: center; justify-content: center; font-size: 0; margin-bottom: 22px; }
 .gtitle { font-family: var(--display); }
+.sf.copyright { text-align: center; margin-top: 18px; font-size: 12.5px; }
 /* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
@@ -3116,8 +3121,9 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 14:17</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 14:55</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
+      <div class="sf copyright">© 2026 Peter Mate. All rights reserved.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
     $('ac-logs').onclick = () => openTimeLogs({ type: 'all' });

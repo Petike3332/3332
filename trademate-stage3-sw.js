@@ -1,3 +1,4 @@
+/* © 2026 Peter Mate. All rights reserved. */
 /* TradeMate Stage 3 — offline support.
    Registered by trademate-stage3.html with scope './trademate-stage3.html', so it only ever
    controls that one page. Other pages in the same repository (e.g. Index.html) are not affected.
