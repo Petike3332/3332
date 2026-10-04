@@ -687,6 +687,13 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 .calsum { margin: -4px 26px 12px; }
 .calrow { width: 100%; border: 0; background: none; color: var(--text); font: inherit; text-align: left; padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); display: flex; cursor: pointer; }
 .cap + .calrow, .cap + .hint + .calrow { border-top: 0; margin-top: 4px; }
+/* --- keep top content clear of iOS's blur band under the status bar (newer iPhones blur ~20pt below it) --- */
+:root { --top-clear: 20px; }
+.tab { padding-top: calc(var(--safe-t) + var(--top-clear)); }
+#tab-map { padding-top: 0; }
+.planseg { top: calc(8px + var(--safe-t) + var(--top-clear)); }
+.planmap .maptop { top: calc(64px + var(--safe-t) + var(--top-clear)); }
+.plancal { padding-top: calc(64px + var(--safe-t) + var(--top-clear)); }
 /* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
@@ -3104,7 +3111,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 13:05</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 13:26</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
