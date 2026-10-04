@@ -2118,12 +2118,12 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Pricing</div><div class="group">
         <div class="row"><span>Pricing</span><div class="seg segmini" style="max-width:62%" role="radiogroup"><button type="button" data-pv="fixed">Fixed price</button><button type="button" data-pv="hourly">Hourly</button></div></div>
 
-        <div class="row"><span>Labour rate per hour</span><input class="inp right" inputmode="decimal" data-f="rate" style="max-width:40%"></div>
+        <div class="row"><span>Labour rate per hour</span><input class="inp right" inputmode="decimal" data-f="rate" style="max-width:40%" aria-label="Labour rate per hour"></div>
         <div class="row" id="je-cover" style="display:none"><span>Quote covers</span><span class="v num" id="je-covers"></span></div></div>
       <div class="sf">Used for this job's time allowance and for new time logged to it. Changing it never alters time already logged, and changing your default rate never alters this job.</div>
       <div class="sh">Deposit</div><div class="group">
         <div class="row"><span>Deposit paid</span><input class="inp right" inputmode="decimal" data-f="deposit" placeholder="${esc(Money.format(0, cur()))}" style="max-width:50%"></div>
-        <div class="row" id="je-dep-date-row"><span>Paid on</span><input type="date" data-f="depositDate" style="width:auto"></div>
+        <div class="row" id="je-dep-date-row"><span>Paid on</span><input type="date" data-f="depositDate" style="width:auto" aria-label="Deposit date"></div>
         <div class="row" id="je-balance-row"><span>Balance to pay</span><b class="num" id="je-balance"></b></div>
         <div class="row" id="je-dep-warn" style="color:var(--orange-t)">⚠️ The deposit is more than the quoted price.</div></div>
       <div class="sf">Leave empty if no deposit has been paid.</div>
@@ -3104,14 +3104,14 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Business name</div><div class="group"><div class="row"><input type="text" id="ac-biz" placeholder="TradeMate"></div></div>
       <div class="sf">Shown on job sheets and exports. Leave blank to use TradeMate.</div>
       <div class="sh">Charging</div><div class="group">
-        <div class="row"><span>Hourly rate</span><input class="inp right" inputmode="decimal" id="ac-rate" style="max-width:40%"></div>
-        <div class="row"><span>Currency</span><select id="ac-cur" style="width:auto"><option>GBP</option><option>EUR</option><option>USD</option></select></div></div>
+        <div class="row"><span>Hourly rate</span><input class="inp right" inputmode="decimal" id="ac-rate" style="max-width:40%" aria-label="Hourly rate"></div>
+        <div class="row"><span>Currency</span><select id="ac-cur" style="width:auto" aria-label="Currency"><option>GBP</option><option>EUR</option><option>USD</option></select></div></div>
       <div class="sf">A new rate applies to new jobs and new time only. Existing jobs and past logs keep their rates.</div>
       <div class="sh">Appearance</div><div class="seg" id="ac-app"><button data-a="system">Automatic</button><button data-a="light">Light</button><button data-a="dark">Dark</button></div>
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 13:26</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 13:48</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
@@ -3609,13 +3609,13 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     const body = ov.querySelector('#le');
     body.innerHTML = `<div class="sh">Customer / job</div><div class="group"><div class="row"><span>Job</span><select id="le-job" style="width:auto;max-width:65%"></select></div>
         <div class="row hint" id="le-gen">General time counts as hours worked but is never charged.</div></div>
-      <div class="sh">When</div><div class="group"><div class="row"><span>Started</span><input type="datetime-local" id="le-start" style="width:auto"></div>
+      <div class="sh">When</div><div class="group"><div class="row"><span>Started</span><input type="datetime-local" id="le-start" style="width:auto" aria-label="Started at"></div>
         <div class="row"><span>Finished</span><span class="v" id="le-end"></span></div></div>
       <div class="sh">Time</div><div class="group">
         <div class="row"><span>Worked hours <b class="num" id="le-wh"></b></span>${stepper('wh')}</div>
         <div class="row"><span>Worked minutes <b class="num" id="le-wm"></b></span>${stepper('wm')}</div>
         <div class="row"><span>Break <b class="num" id="le-bm"></b></span>${stepper('bm')}</div></div>
-      <div class="sh">Charging</div><div class="group"><div class="row"><span>Hourly rate</span><input class="inp right" inputmode="decimal" id="le-rate" style="max-width:40%"></div>
+      <div class="sh">Charging</div><div class="group"><div class="row"><span>Hourly rate</span><input class="inp right" inputmode="decimal" id="le-rate" style="max-width:40%" aria-label="Hourly rate for this entry"></div>
         <div class="row"><span>Earnings</span><b class="num" id="le-earn"></b></div></div>
       <div class="sf">Earnings = worked time × hourly rate. Break time is never charged.</div>
       <div class="sh">Notes</div><div class="group"><div class="row"><textarea id="le-notes" rows="2" placeholder="What was done"></textarea></div></div>
