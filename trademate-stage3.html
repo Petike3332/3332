@@ -706,6 +706,12 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 .appmark { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 26px; }
 .appmark b { font-family: var(--display); font-size: 20px; letter-spacing: -.3px; color: var(--text); }
 .appmark span { font-size: 13px; color: var(--accent); font-weight: 600; }
+/* --- solid tab bar: screens end above it, nothing scrolls underneath --- */
+#tabbar { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.tab { bottom: calc(80px + var(--safe-b)); padding-bottom: 24px; }
+.plancal { padding-bottom: 24px; }
+.mapcard { bottom: 12px; }
+#tab-map .leaflet-bottom { bottom: 0; }
 /* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
@@ -3124,7 +3130,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 16:08</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 16:58</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div class="appmark"><b>Jobwright</b><span>Every job, done right</span></div>
       <div class="sf copyright">© 2026 Peter Mate. All rights reserved.</div>

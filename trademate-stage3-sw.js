@@ -1,9 +1,9 @@
 /* © 2026 Peter Mate. All rights reserved. */
-/* TradeMate Stage 3 — offline support.
+/* Jobwright (formerly TradeMate) Stage 3 — offline support.
    Registered by trademate-stage3.html with scope './trademate-stage3.html', so it only ever
    controls that one page. Other pages in the same repository (e.g. Index.html) are not affected.
 
-   - The app page: network first (so a newly uploaded version is picked up whenever you're online),
+   - The app page: network first, skipping the browser's HTTP cache (so a newly uploaded version is picked up whenever you're online),
      falling back to the last saved copy when there's no signal.
    - The map library (Leaflet 1.9.4, a fixed version that never changes): saved once, then served
      from the saved copy.
@@ -41,7 +41,8 @@ self.addEventListener('fetch', event => {
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const res = await fetch(req);
+        // always ask the server (never the phone's web cache), so a new upload shows straight away
+        const res = await fetch(new Request(req.url, { cache: 'no-store', credentials: 'same-origin' }));
         if (res.ok) { const cache = await caches.open(CACHE); await cache.put(self.registration.scope, res.clone()); }
         return res;
       } catch (err) {
