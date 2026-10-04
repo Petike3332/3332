@@ -694,6 +694,10 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 .planseg { top: calc(8px + var(--safe-t) + var(--top-clear)); }
 .planmap .maptop { top: calc(64px + var(--safe-t) + var(--top-clear)); }
 .plancal { padding-top: calc(64px + var(--safe-t) + var(--top-clear)); }
+/* --- Quick guide: brass icon tile --- */
+.gicon { width: 96px; height: 96px; border-radius: 28px; background: var(--card2); box-shadow: inset 0 0 0 1px var(--line); color: var(--accent);
+  display: flex; align-items: center; justify-content: center; font-size: 0; margin-bottom: 22px; }
+.gtitle { font-family: var(--display); }
 /* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
@@ -3040,9 +3044,10 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
   // QUICK GUIDE — three steps, shown on first launch; reopen from Account
   // =========================================================================================
   const GUIDE = [
-    { icon: '💼', title: 'Add your jobs', text: 'Tap + on the Jobs tab. Add the customer, what the job is and your price. Everything else is optional: tap More details when you need it.' },
-    { icon: '⏱️', title: 'Time your work', text: 'On the Timer, pick a job and press Start. Press Stop when you finish, and the time is saved to that job. Your earnings and income forecast update by themselves.' },
-    { icon: '🔒', title: 'Your data stays on this device', text: "Jobs, time logs, settings and photos are saved only in this browser on this device and don't sync to your other devices. If you clear Safari's data, reset this device, or switch phones, everything here is lost unless you've exported a backup (Account → Export backup). Two things do go online: when you use Find address, what you type is sent to free map services (OpenStreetMap, Photon and postcodes.io) to look it up, and the map loads from OpenStreetMap and Esri, and the app's fonts load from Google Fonts." }
+    { icon: '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7M3 12.5h18"/></svg>', title: 'Add your jobs', text: 'Tap the brass + on the Jobs tab. Add the customer, what the job is and your price. Everything else is optional: tap More details when you need it.' },
+    { icon: '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>', title: 'Time your work', text: "On Today, tap the Working on card to choose a job, then press Start. Press Stop when you finish and the time is saved to that job. Shifts under a minute aren't saved." },
+    { icon: '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/><path d="M3 4h7M14 20h7"/></svg>', title: 'Follow each job to paid', text: "Tap a job to open it. The button under Progress always shows the next step: collected, started, ready, delivered, completed, then Mark as paid. Plan shows your busy days on a calendar, and Money shows what you've earned and what's still owed." },
+    { icon: '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>', title: 'Your data stays on this device', text: "Jobs, time logs, settings and photos are saved only in this browser on this device and don't sync to your other devices. If you clear Safari's data, reset this device, or switch phones, everything here is lost unless you've exported a backup (Account → Export backup). Two things do go online: when you use Find address, what you type is sent to free map services (OpenStreetMap, Photon and postcodes.io) to look it up, and the map loads from OpenStreetMap and Esri, and the app's fonts load from Google Fonts." }
   ];
   function openGuide() {
     const ov = pushOverlay('sheet');
@@ -3111,7 +3116,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 13:48</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 14:10</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
