@@ -2900,7 +2900,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 09:34</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 12:38</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
@@ -3941,7 +3941,18 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         ['In progress', done || !!j.readyAt || (j.deliveryDate && isDone(j, 'deliveryDate'))],
         ['Ready', done || !!j.readyAt || (j.deliveryDate ? isDone(j, 'deliveryDate') : false)],
         [j.deliveryDate ? kindOf(j, 'deliveryDate').done : 'Completed', done || (j.deliveryDate ? isDone(j, 'deliveryDate') : false)]];
+      for (let k = 1; k < steps.length; k++) steps[k][1] = steps[k][1] && steps[k - 1][1];
       let nowIdx = steps.findIndex(x => !x[1]);
+      // the one next action, in order: collect → start → ready → deliver → complete
+      const hasCol = !!j.collectionDate, colDone = hasCol && isDone(j, 'collectionDate'), hasDel = !!j.deliveryDate, delDone = hasDel && isDone(j, 'deliveryDate');
+      let next = null;
+      if (!enq && !done) {
+        if (hasCol && !colDone) next = { key: 'collect', label: kindOf(j, 'collectionDate').mark };
+        else if (j.status === 'New') next = { key: 'start', label: 'Start job' };
+        else if (!j.readyAt) next = { key: 'ready', label: 'Mark as ready' };
+        else if (hasDel && !delDone) next = { key: 'deliver', label: kindOf(j, 'deliveryDate').mark };
+        else next = { key: 'complete', label: 'Mark job as completed' };
+      }
       const stepper = steps.map(([label, ok], k) => `<div class="dstep ${ok ? 'ok' : k === nowIdx ? 'now' : ''}"><div class="dot">${ok ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>' : ''}</div><span>${esc(label)}</span></div>`).join('');
       // money
       const q = j.quotePence, dep = j.depositPence > 0 ? j.depositPence : 0, fixed = Income.pricing(j) === 'fixed';
@@ -3966,8 +3977,8 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         <div class="dacts">${act(tel, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a11 11 0 0 0 6 6l1.5-2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 20 4 13.5 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></svg>', 'Call')}${act(sms, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5z"/></svg>', 'Message')}${act(dir, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg>', 'Directions', 'target="_blank" rel="noopener"')}
           <button type="button" class="dact" data-dsheet><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg><span>Job sheet</span></button></div>
         ${enq ? '' : `<div class="card"><div class="cap" style="margin-bottom:12px">Progress</div><div class="dsteps">${stepper}</div>
-          ${done ? '' : j.readyAt ? `<div class="dready">Ready since ${esc(prettyDay(isoOf(j.readyAt)))}, ${esc(hhmm(j.readyAt))}<button type="button" class="minilink" data-dunready>Undo</button></div>`
-            : `<button type="button" class="btn tint small" style="width:100%;margin-top:14px" data-dready><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg> Mark as ready</button>`}</div>`}
+          ${!done && j.readyAt ? `<div class="dready">Ready since ${esc(prettyDay(isoOf(j.readyAt)))}, ${esc(hhmm(j.readyAt))}${next && next.key !== 'deliver' && next.key !== 'complete' ? '' : '<button type="button" class="minilink" data-dunready>Undo</button>'}</div>` : ''}
+          ${next ? `<button type="button" class="btn ${next.key === 'complete' ? 'prim' : 'tint'} small" style="width:100%;margin-top:14px" data-dnext="${next.key}"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg> ${esc(next.label)}</button>` : ''}</div>`}
         <div class="card"><div class="dmoney">${moneyCell(fixed ? 'Quote' : 'Estimate', q !== null && q !== undefined ? esc(fmt(q)) : '—', fixed ? 'fixed price' : 'hourly')}
           ${moneyCell('Deposit', dep ? esc(fmt(dep)) : '—', dep ? (j.depositDate ? 'paid ' + esc(prettyDay(j.depositDate)) : 'paid') : 'none', dep ? 'good' : '')}
           ${moneyCell('Balance', balance !== null ? esc(fmt(balance)) : '—', !done ? 'due on delivery' : !balance ? 'nothing to pay' : j.paidAt ? 'paid' : 'awaiting payment', done && balance && j.paidAt ? 'good' : done && balance ? 'warn' : '')}</div>
@@ -3984,7 +3995,15 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="cap">Photos</div><button type="button" class="btn tint small" data-dphoto><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> Add</button></div>${photos.length ? `<div class="dphotos">${photos.map(p => `<button type="button" class="ps-ph dph" data-view="${esc(j.id)}|${p.kind}|${p.i}" aria-label="${p.kind === 'before' ? 'Before' : 'After'} photo"><img src="${photoUrl(p.r)}" alt=""><span>${p.kind === 'before' ? 'Before' : 'After'}</span></button>`).join('')}</div>`
           : '<div class="hint" style="margin-top:8px">No photos yet.</div>'}</div>`;
       ov.querySelector('[data-dsheet]').onclick = () => openJobSheet(j.id);
-      const rd = ov.querySelector('[data-dready]'); if (rd) rd.onclick = () => { j.readyAt = Date.now(); if (j.status === 'New') j.status = 'In Progress'; saveAll(); refreshAll(); toast(`${j.customerName}: ready`); };
+      const nx = ov.querySelector('[data-dnext]'); if (nx) nx.onclick = () => {
+        const k = nx.dataset.dnext;
+        if (k === 'collect') { markDone(j.id, 'collectionDate'); return; }
+        if (k === 'deliver') { markDone(j.id, 'deliveryDate'); return; }
+        if (k === 'start') { j.status = 'In Progress'; toast(`${j.customerName}: job started`); }
+        if (k === 'ready') { j.readyAt = Date.now(); toast(`${j.customerName}: ready`); }
+        if (k === 'complete') { j.status = 'Completed'; j.completedAt = Date.now(); toast(`${j.customerName}: job completed`); }
+        saveAll(); refreshAll();
+      };
       const ur = ov.querySelector('[data-dunready]'); if (ur) ur.onclick = () => { j.readyAt = null; saveAll(); refreshAll(); toast('Ready mark removed'); };
       const pd = ov.querySelector('[data-dpaid]'); if (pd) pd.onclick = () => { j.paidAt = Date.now(); saveAll(); refreshAll(); toast(`${j.customerName}: marked as paid`); };
       const up = ov.querySelector('[data-dunpaid]'); if (up) up.onclick = () => { j.paidAt = null; saveAll(); refreshAll(); toast('Payment mark removed'); };
