@@ -624,6 +624,14 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 .mchip.on { background: var(--brass); color: var(--brass-ink); border-color: var(--brass); }
 .rbtn.maploc.on { color: var(--brass-ink); background: var(--brass); }
 .rbtn.maploc.busy svg { opacity: .4; }
+/* --- features: Ready, payments, travel, Pro --- */
+.pill.brass { background: var(--brass); color: var(--brass-ink); }
+.dready { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; padding: 10px 12px; border-radius: 14px; background: var(--card2); font-size: 14px; font-weight: 600; }
+.dm .v.warn { color: var(--orange-t); }
+.unpaid { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; padding: 9px 12px; border-radius: 14px; background: rgba(243,163,91,.12); color: var(--orange-t); font-size: 14px; }
+.unpaid .minilink { margin-left: auto; }
+.mtravel { display: flex; gap: 18px; margin: 0 0 10px; color: var(--sub); font-size: 13.5px; }
+.mtravel b { color: var(--text); }
 /* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
@@ -1825,6 +1833,8 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     $('jsearch').addEventListener('input', e => { S.jobSearch = e.target.value; renderJobList(); });
     renderJobList();
   }
+  // what's still owed on a finished job that hasn't been marked paid (quote minus deposit)
+  const unpaidOf = j => j.status === 'Completed' && !j.paidAt && j.quotePence !== null && j.quotePence !== undefined ? Math.max(0, j.quotePence - (j.depositPence > 0 ? j.depositPence : 0)) : 0;
   // "£360 quote · 2.1 / 10.3 hrs" with a brass bar, for priced jobs with a rate
   function budgetBar(j, info) {
     if (isEnquiry(j) || j.quotePence === null || j.quotePence === undefined || !(j.ratePence > 0)) return '';
@@ -1883,10 +1893,11 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       const h = headingFor(j, i);
       return (h ? `<div class="sh jhead">${esc(h)}</div>` : '') + swipeRow(`<div class="jobrow">
         <div class="jtop"><div class="av" style="width:42px;height:42px;font-size:14px;background:${avatarColor(j.customerName)}" aria-hidden="true">${esc(initials(j.customerName))}</div>
-          <div class="jt"><div class="jline">${jobNo(j) ? `<span class="jno">${esc(jobNo(j))}</span>` : ''}<span class="name">${esc(j.customerName)}</span></div><div class="desc">${esc(j.jobDescription)}</div></div>${statusPill(j.status)}</div>
+          <div class="jt"><div class="jline">${jobNo(j) ? `<span class="jno">${esc(jobNo(j))}</span>` : ''}<span class="name">${esc(j.customerName)}</span></div><div class="desc">${esc(j.jobDescription)}</div></div>${j.readyAt && j.status === 'In Progress' ? '<span class="pill brass">Ready</span>' : statusPill(j.status)}</div>
         ${j.address ? `<div class="addr">📍 ${esc(j.address)}</div>` : ''}
         ${dateRows(j)}
         ${budgetBar(j, info)}
+        ${unpaidOf(j) ? `<div class="unpaid">Awaiting payment · <b>${esc(fmt(unpaidOf(j)))}</b><button type="button" class="minilink" data-paid="${esc(j.id)}">Mark paid</button></div>` : ''}
         ${depositRow(j)}
         ${photoStrip(j)}
         ${j.status === 'Enquiry' ? `<div class="acts"><button type="button" class="btn prim small" data-convert="${esc(j.id)}">✓ Turn into job</button><button type="button" class="btn tint small" data-decline="${esc(j.id)}">Not going ahead</button></div>` : ''}
@@ -1899,6 +1910,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       action: (i, a) => a === 0 ? openJobEditor(jobs[i].id) : requestDeleteJob(jobs[i])
     });
     box.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => openJobSheet(b.dataset.sheet));
+    box.querySelectorAll('[data-paid]').forEach(b => b.onclick = () => { const j = jobById(b.dataset.paid); if (!j) return; j.paidAt = Date.now(); saveAll(); refreshAll(); toast(`${j.customerName}: marked as paid`); });
     box.querySelectorAll('[data-convert]').forEach(b => b.onclick = () => turnIntoJob(b.dataset.convert));
     box.querySelectorAll('[data-decline]').forEach(b => b.onclick = () => notGoingAhead(b.dataset.decline));
     box.querySelectorAll('[data-reopen]').forEach(b => b.onclick = () => { const j = jobById(b.dataset.reopen); if (!j) return; j.status = 'Enquiry'; saveAll(); refreshAll(); toast(`${j.customerName} is an enquiry again.`); });
@@ -2511,6 +2523,14 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     renderMapCard();
   }
   let jobPins = new Map();
+  // Straight-line distance from your last location, and a rough drive time (roads ~1.3× longer, ~25 mph average).
+  function travelLine(j) {
+    if (!lastFix) return '<div class="hint" style="margin-bottom:10px">Tap the locate button to see how far away this job is.</div>';
+    const R = 3958.8, toR = x => x * Math.PI / 180, [la1, lo1] = lastFix, la2 = j.latitude, lo2 = j.longitude;
+    const a = Math.sin(toR(la2 - la1) / 2) ** 2 + Math.cos(toR(la1)) * Math.cos(toR(la2)) * Math.sin(toR(lo2 - lo1) / 2) ** 2;
+    const miles = 2 * R * Math.asin(Math.sqrt(a)), mins = Math.max(1, Math.round(miles * 1.3 / 25 * 60));
+    return `<div class="mtravel"><span><b>${miles < 0.1 ? 'Under 0.1' : miles.toFixed(miles < 10 ? 1 : 0)} mi</b> away</span><span>about <b>${mins >= 60 ? Math.floor(mins / 60) + 'h ' + String(mins % 60).padStart(2, '0') + 'm' : mins + ' min'}</b> drive</span></div>`;
+  }
   function jobPinIcon(j, on) {
     const label = Number.isInteger(j.number) ? String(j.number) : initials(j.customerName);
     return L.divIcon({ className: '', html: `<div class="jpin${on ? ' on' : ''}"><div class="jpin-b">${esc(label)}</div><div class="jpin-t"></div></div>`, iconSize: [44, 52], iconAnchor: [22, 52] });
@@ -2528,7 +2548,8 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:16.5px">${jobNo(j) ? esc(jobNo(j)) + ' · ' : ''}${esc(j.customerName)}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.address)}</div></div>
         <button class="linkbtn" id="mc-x" aria-label="Close" style="padding:0 4px;font-size:20px;color:var(--sub);min-height:44px">✕</button></div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0">${chip}<span class="hint">${esc(j.jobDescription)}</span></div>
-      ${locationStatus(j.locationPrecision, j.locationPinMoved)}
+      ${travelLine(j)}
+      ${['property', 'street', 'postcode', 'area'].includes(j.locationPrecision) ? locationStatus(j.locationPrecision, j.locationPinMoved) : ''}
       <div style="display:flex;gap:10px;margin-top:12px"><a class="btn prim" style="flex:1;min-height:50px" href="${directionsUrl(j)}" target="_blank" rel="noopener"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg> Directions</a>
         ${tel ? `<a class="rbtn" style="width:50px;height:50px;border-radius:25px;background:var(--card2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)" href="${tel}" aria-label="Call"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a11 11 0 0 0 6 6l1.5-2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 20 4 13.5 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></svg></a>` : ''}
         <button type="button" class="rbtn" id="mc-open" style="width:50px;height:50px;border-radius:25px;background:var(--card2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)" aria-label="Open job"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></button></div></div>`;
@@ -2668,7 +2689,8 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
           || !isWholeOrNull(j.ratePence) || !isWholeOrNull(j.quotePence) || !isWholeOrNull(j.depositPence)
           || !(j.pricing === undefined || j.pricing === 'fixed' || j.pricing === 'hourly')
           || !(j.number === undefined || (Number.isInteger(j.number) && j.number > 0))
-          || !(j.email === undefined || isStr(j.email)))
+          || !(j.email === undefined || isStr(j.email))
+          || !(j.readyAt === undefined || j.readyAt === null || Number.isFinite(j.readyAt)) || !(j.paidAt === undefined || j.paidAt === null || Number.isFinite(j.paidAt)))
         return `job ${i + 1} is damaged`;
     }
     for (let i = 0; i < logs.length; i++) {
@@ -2845,7 +2867,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     const bTitle = !lastB ? 'Not backed up yet' : bDays === 0 ? 'Backed up today' : bDays === 1 ? 'Backed up yesterday' : `Backed up ${bDays} days ago`;
     $('tab-account').innerHTML = `<h1 class="large">Account</h1>
       <div class="card acard"><div class="biz" style="width:58px;height:58px;border-radius:18px;font-size:19px" aria-hidden="true">${esc(initials(st.businessName || 'TradeMate'))}</div>
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:18px">${esc(st.businessName || 'TradeMate')}</div><div class="hint">${esc(fmt(st.ratePence))}/hr · ${esc(st.currency || 'GBP')}</div></div></div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:18px">${esc(st.businessName || 'TradeMate')}</div><div class="hint">${esc(fmt(st.ratePence))}/hr · ${esc(st.currency || 'GBP')}</div></div><span class="pill brass" title="Test build: all features unlocked">Pro</span></div>
       <div class="card acard"><div class="abk ${bstat.warn ? 'warn' : ''}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3z"/><path d="m9 12 2 2 4-4"/></svg></div>
         <div style="flex:1;min-width:0"><div style="font-weight:700">${bTitle}</div><div class="hint">Jobs, clients, time and photos</div></div>
         <button type="button" class="btn tint small" id="ac-bk-now"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg> Back up</button></div>
@@ -2878,7 +2900,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">3 Oct 2026, 23:41</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 09:34</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
@@ -3034,9 +3056,8 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     // booked for the month after this one (from the income forecast)
     const nm = new Date(); nm.setDate(1); nm.setMonth(nm.getMonth() + 1);
     const nmKey = `${nm.getFullYear()}-${String(nm.getMonth() + 1).padStart(2, '0')}`, fm = Forecast.month(S.jobs, info, nmKey);
-    // balances due on active jobs: quote minus deposit
-    const active = S.jobs.filter(j => !isEnquiry(j) && j.status !== 'Completed' && j.quotePence !== null && j.quotePence !== undefined);
-    const due = active.reduce((t, j) => t + Math.max(0, j.quotePence - (j.depositPence > 0 ? j.depositPence : 0)), 0);
+    // unpaid balances: finished jobs not yet marked paid
+    const unpaidJobs = S.jobs.filter(j => unpaidOf(j) > 0), unpaid = unpaidJobs.reduce((t, j) => t + unpaidOf(j), 0);
     const tile = (k, v, sub, icon) => `<div class="mtile"><div class="mtk">${icon}${k}</div><div class="mtv">${v}</div><div class="mts">${sub}</div></div>`;
     const prevName = p === 'month' ? MON[new Date(prevIv.start).getMonth()] : p === 'year' ? String(new Date(prevIv.start).getFullYear()) : 'last week';
     box.innerHTML = `
@@ -3055,7 +3076,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         ${tile('Job rate', cur.effectiveRatePence !== null ? esc(fmt(cur.effectiveRatePence)) + '/hr' : '—', 'income ÷ hours on jobs', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 6.5A4 4 0 0 0 9 9v9M6.5 13h7M6 19h12"/></svg>')}
         ${tile('All-in rate', allIn !== null ? esc(fmt(allIn)) + '/hr' : '—', 'incl. admin &amp; travel', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>')}
         ${tile('Booked ' + MONTH[nm.getMonth()], esc(fmt(fm.bookedTotal)), `${fm.booked.length} ${fm.booked.length === 1 ? 'job' : 'jobs'} scheduled`, '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>')}
-        ${tile('Balances due', esc(fmt(due)), `on ${active.length} active ${active.length === 1 ? 'job' : 'jobs'}`, '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h12v4M4 7v11a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14.5h.01"/></svg>')}
+        ${tile('Unpaid balances', esc(fmt(unpaid)), unpaidJobs.length ? `${unpaidJobs.length} ${unpaidJobs.length === 1 ? 'job' : 'jobs'} awaiting payment` : 'all paid up', '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h12v4M4 7v11a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14.5h.01"/></svg>')}
       </div>
       <div class="group" style="margin-top:16px">
         <div class="row tap chev" id="m-details"><span>Earnings details</span><span class="v">stats, filters, jobs</span></div>
@@ -3623,6 +3644,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         const ll = [pos.coords.latitude, pos.coords.longitude];
         lastFix = ll;
         showMe(ll, pos.coords.accuracy);
+        if (selectedMapJob) renderMapCard();   // update the distance on the open card
         if (first) { first = false; jobMap.setView(ll, 17); btn.classList.remove('busy'); btn.classList.add('on'); }
       }, err => {
         stopLocating();
@@ -3916,7 +3938,8 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       const steps = [
         ['Booked', !enq],
         [j.collectionDate ? kindOf(j, 'collectionDate').done : 'Started', j.collectionDate ? isDone(j, 'collectionDate') : (j.status === 'In Progress' || done)],
-        ['In progress', done || (j.deliveryDate && isDone(j, 'deliveryDate'))],
+        ['In progress', done || !!j.readyAt || (j.deliveryDate && isDone(j, 'deliveryDate'))],
+        ['Ready', done || !!j.readyAt || (j.deliveryDate ? isDone(j, 'deliveryDate') : false)],
         [j.deliveryDate ? kindOf(j, 'deliveryDate').done : 'Completed', done || (j.deliveryDate ? isDone(j, 'deliveryDate') : false)]];
       let nowIdx = steps.findIndex(x => !x[1]);
       const stepper = steps.map(([label, ok], k) => `<div class="dstep ${ok ? 'ok' : k === nowIdx ? 'now' : ''}"><div class="dot">${ok ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>' : ''}</div><span>${esc(label)}</span></div>`).join('');
@@ -3942,10 +3965,14 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
           <div style="flex:1;min-width:0"><h1 class="dname">${esc(j.customerName)}</h1><div class="hint" style="font-size:14.5px">${esc(j.jobDescription)}</div></div></div>
         <div class="dacts">${act(tel, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a11 11 0 0 0 6 6l1.5-2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 20 4 13.5 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></svg>', 'Call')}${act(sms, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5z"/></svg>', 'Message')}${act(dir, '<svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg>', 'Directions', 'target="_blank" rel="noopener"')}
           <button type="button" class="dact" data-dsheet><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg><span>Job sheet</span></button></div>
-        ${enq ? '' : `<div class="card"><div class="cap" style="margin-bottom:12px">Progress</div><div class="dsteps">${stepper}</div></div>`}
+        ${enq ? '' : `<div class="card"><div class="cap" style="margin-bottom:12px">Progress</div><div class="dsteps">${stepper}</div>
+          ${done ? '' : j.readyAt ? `<div class="dready">Ready since ${esc(prettyDay(isoOf(j.readyAt)))}, ${esc(hhmm(j.readyAt))}<button type="button" class="minilink" data-dunready>Undo</button></div>`
+            : `<button type="button" class="btn tint small" style="width:100%;margin-top:14px" data-dready><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg> Mark as ready</button>`}</div>`}
         <div class="card"><div class="dmoney">${moneyCell(fixed ? 'Quote' : 'Estimate', q !== null && q !== undefined ? esc(fmt(q)) : '—', fixed ? 'fixed price' : 'hourly')}
           ${moneyCell('Deposit', dep ? esc(fmt(dep)) : '—', dep ? (j.depositDate ? 'paid ' + esc(prettyDay(j.depositDate)) : 'paid') : 'none', dep ? 'good' : '')}
-          ${moneyCell('Balance', balance !== null ? esc(fmt(balance)) : '—', done ? 'job completed' : 'due on delivery')}</div></div>
+          ${moneyCell('Balance', balance !== null ? esc(fmt(balance)) : '—', !done ? 'due on delivery' : !balance ? 'nothing to pay' : j.paidAt ? 'paid' : 'awaiting payment', done && balance && j.paidAt ? 'good' : done && balance ? 'warn' : '')}</div>
+          ${done && balance ? (j.paidAt ? `<div class="dready">Paid ${esc(prettyDay(isoOf(j.paidAt)))}<button type="button" class="minilink" data-dunpaid>Undo</button></div>`
+            : `<button type="button" class="btn prim small" style="width:100%;margin-top:14px" data-dpaid><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg> Mark as paid</button>`) : ''}</div>
         ${allow ? `<div class="card"><div class="cap">Time vs quote</div>
           <div style="display:flex;align-items:baseline;gap:8px;margin:10px 0"><span class="dbig">${Duration.decimalHours(worked)} h</span><span class="hint">of ${Duration.decimalHours(allow)} h the quote covers</span></div>
           <div class="jbud-b" style="height:8px"><div style="width:${pct}%;${worked > allow ? 'background:#E5484D' : ''}"></div></div>
@@ -3957,6 +3984,10 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
         <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="cap">Photos</div><button type="button" class="btn tint small" data-dphoto><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> Add</button></div>${photos.length ? `<div class="dphotos">${photos.map(p => `<button type="button" class="ps-ph dph" data-view="${esc(j.id)}|${p.kind}|${p.i}" aria-label="${p.kind === 'before' ? 'Before' : 'After'} photo"><img src="${photoUrl(p.r)}" alt=""><span>${p.kind === 'before' ? 'Before' : 'After'}</span></button>`).join('')}</div>`
           : '<div class="hint" style="margin-top:8px">No photos yet.</div>'}</div>`;
       ov.querySelector('[data-dsheet]').onclick = () => openJobSheet(j.id);
+      const rd = ov.querySelector('[data-dready]'); if (rd) rd.onclick = () => { j.readyAt = Date.now(); if (j.status === 'New') j.status = 'In Progress'; saveAll(); refreshAll(); toast(`${j.customerName}: ready`); };
+      const ur = ov.querySelector('[data-dunready]'); if (ur) ur.onclick = () => { j.readyAt = null; saveAll(); refreshAll(); toast('Ready mark removed'); };
+      const pd = ov.querySelector('[data-dpaid]'); if (pd) pd.onclick = () => { j.paidAt = Date.now(); saveAll(); refreshAll(); toast(`${j.customerName}: marked as paid`); };
+      const up = ov.querySelector('[data-dunpaid]'); if (up) up.onclick = () => { j.paidAt = null; saveAll(); refreshAll(); toast('Payment mark removed'); };
       ov.querySelector('[data-dphoto]').onclick = () => {
         openJobEditor(j.id);
         setTimeout(() => {   // open "More details" if needed and bring the photos into view
