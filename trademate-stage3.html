@@ -632,6 +632,33 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 .unpaid .minilink { margin-left: auto; }
 .mtravel { display: flex; gap: 18px; margin: 0 0 10px; color: var(--sub); font-size: 13.5px; }
 .mtravel b { color: var(--text); }
+/* --- Done tab: folding months, compact rows --- */
+.dtools { display: flex; align-items: flex-start; gap: 10px; margin: 0 16px 12px; }
+.dtools .mchip { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.dtools .mchip.on { background: var(--brass); color: var(--brass-ink); }
+.dclient { max-width: 150px; padding-right: 10px; -webkit-appearance: none; appearance: none; text-overflow: ellipsis; }
+.djump { position: relative; width: 40px; height: 36px; border-radius: 12px; flex: none; overflow: hidden; }
+.djump input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; font-size: 16px; }
+.dhd { display: flex; align-items: center; gap: 8px; width: calc(100% - 32px); margin: 6px 16px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.dhd.yr { background: var(--card2); }
+.dhd.yr .dht { font-family: var(--display); font-size: 18px; }
+.dhd.mo { margin-left: 16px; }
+.dhd .dchev { color: var(--sub); transition: transform .2s; flex: none; }
+.dhd.open .dchev { transform: rotate(90deg); }
+.dht { font-weight: 700; flex: 1; }
+.dhs { color: var(--sub); font-size: 13.5px; white-space: nowrap; }
+.drows { margin-top: 0; margin-bottom: 10px; }
+.drow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.drow + .drow { border-top: 1px solid var(--sep); }
+.drow:active { background: var(--fill); }
+.drn { font-family: var(--display); font-weight: 600; font-size: 13px; color: var(--sub); min-width: 30px; }
+.drm { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.drm b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drm span { font-size: 13px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dra { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.dra .pill { font-size: 11px; padding: 2px 8px; }
+.dhd.mo.sub { margin-left: 30px; width: calc(100% - 46px); }
 /* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
@@ -1844,6 +1871,72 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     return `<div class="jbud"><div class="jbud-t"><span>${esc(fmt(j.quotePence))} quote</span><span>${Duration.decimalHours(worked)} / ${Duration.decimalHours(allow)} hrs</span></div>
       <div class="jbud-b"><div style="width:${pct}%;${over ? 'background:#E5484D' : ''}"></div></div></div>`;
   }
+
+  // =========================================================================================
+  // DONE TAB — fold-away years/months, compact rows, filters, jump to a month
+  // =========================================================================================
+  const doneUI = { filter: 'all', client: '', open: null };   // open: Set of 'y2026' / 'm2026-09' keys
+  function renderDoneList(box, completed, doneOn, info) {
+    const thisYear = new Date().getFullYear();
+    const amount = j => Income.value(j, (info[j.id] || {}).laborPence || 0).pence || 0;
+    const clients = [...new Set(completed.map(j => j.customerName))].sort((a, b) => a.localeCompare(b));
+    if (doneUI.client && !clients.includes(doneUI.client)) doneUI.client = '';
+    const list = completed.filter(j => (doneUI.filter !== 'unpaid' || unpaidOf(j) > 0)
+      && (doneUI.filter !== 'year' || new Date(doneOn(j)).getFullYear() === thisYear)
+      && (!doneUI.client || j.customerName === doneUI.client));
+    // group: year → month
+    const years = new Map();
+    list.forEach(j => {
+      const d = new Date(doneOn(j)), y = d.getFullYear(), mk = `${y}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!years.has(y)) years.set(y, new Map());
+      const ms = years.get(y); if (!ms.has(mk)) ms.set(mk, []); ms.get(mk).push(j);
+    });
+    if (!doneUI.open) {   // first time: open the latest month (and its year)
+      doneUI.open = new Set();
+      const fy = [...years.keys()][0]; if (fy !== undefined) { doneUI.open.add('y' + fy); doneUI.open.add('m' + [...years.get(fy).keys()][0]); }
+    }
+    const multiYear = years.size > 1;
+    const sum = js => js.reduce((t, j) => t + amount(j), 0);
+    const head = (key, title, js, cls) => `<button type="button" class="dhd ${cls}${doneUI.open.has(key) ? ' open' : ''}" data-fold="${key}" aria-expanded="${doneUI.open.has(key)}">
+        ${'<svg class="dchev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>'}<span class="dht">${esc(title)}</span><span class="dhs">${js.length} ${js.length === 1 ? 'job' : 'jobs'} · ${esc(fmt(sum(js)))}</span></button>`;
+    const row = j => { const owed = unpaidOf(j); return `<button type="button" class="drow" data-open="${esc(j.id)}">
+        <span class="drn">${jobNo(j) ? esc(jobNo(j)) : ''}</span><span class="drm"><b>${esc(j.customerName)}</b><span>${esc(j.jobDescription)} · ${esc(prettyDay(isoOf(doneOn(j))))}</span></span>
+        <span class="dra">${owed ? '<span class="pill orange">Unpaid</span>' : ''}<b class="num">${esc(fmt(amount(j)))}</b></span></button>`; };
+    let html = '';
+    years.forEach((months, y) => {
+      const yjobs = [...months.values()].flat(), yOpen = !multiYear || doneUI.open.has('y' + y);
+      if (multiYear) html += head('y' + y, String(y), yjobs, 'yr');
+      if (!yOpen) return;
+      months.forEach((js, mk) => {
+        const [yy, mm] = mk.split('-').map(Number);
+        html += head('m' + mk, `${MONTH[mm - 1]} ${yy}`, js, multiYear ? 'mo sub' : 'mo');
+        if (doneUI.open.has('m' + mk)) html += `<div class="group drows">${js.map(row).join('')}</div>`;
+      });
+    });
+    const unpaidCount = completed.filter(j => unpaidOf(j) > 0).length;
+    box.innerHTML = `
+      <div class="dtools">
+        <div class="mapchips" style="flex:1;min-width:0">
+          ${[['all', 'All'], ['unpaid', 'Unpaid' + (unpaidCount ? ' · ' + unpaidCount : '')], ['year', 'This year']].map(([k, l]) => `<button type="button" class="mchip${doneUI.filter === k ? ' on' : ''}" data-df="${k}">${l}</button>`).join('')}
+          <select class="mchip dclient${doneUI.client ? ' on' : ''}" id="dclient" aria-label="Filter by client"><option value="">All clients</option>${clients.map(c => `<option value="${esc(c)}"${c === doneUI.client ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
+        </div>
+        <label class="rbtn djump" aria-label="Jump to a month"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg><input type="month" id="djump" aria-label="Jump to a month"></label>
+      </div>
+      ${list.length ? html : `<div class="empty"><b>No jobs match</b>${doneUI.filter === 'unpaid' ? 'Every finished job is marked as paid.' : 'Try another filter.'}</div>`}`;
+    box.querySelectorAll('[data-df]').forEach(b => b.onclick = () => { doneUI.filter = b.dataset.df; renderJobList(); });
+    $('dclient').onchange = e => { doneUI.client = e.target.value; renderJobList(); };
+    box.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => { const k = b.dataset.fold; doneUI.open.has(k) ? doneUI.open.delete(k) : doneUI.open.add(k); renderJobList(); });
+    box.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openJobDetail(b.dataset.open));
+    $('djump').onchange = e => {
+      const v = e.target.value; if (!/^\d{4}-\d{2}$/.test(v)) return;
+      doneUI.filter = 'all'; doneUI.client = ''; doneUI.open.add('y' + v.slice(0, 4)); doneUI.open.add('m' + v);
+      renderJobList();
+      const el = box.querySelector(`[data-fold="m${v}"]`);
+      if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      else toast(`No finished jobs in ${MONTH[+v.slice(5) - 1]} ${v.slice(0, 4)}`);
+    };
+  }
+
   function renderJobList() {
     const box = $('jlist'); if (!box) return;
     const q = S.jobSearch.trim().toLowerCase();
@@ -1866,6 +1959,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       tabs.querySelectorAll('[data-jt]').forEach(bt => bt.onclick = () => { S.jobTab = bt.dataset.jt; renderJobList(); });
     }
     // Searching looks through both lists; otherwise show the chosen tab. Completed jobs get month headings.
+    if (!q && S.jobTab === 'completed' && completed.length) { renderDoneList(box, completed, doneOn, info); return; }
     let jobs, headingFor = () => null;
     if (q) {
       const groups = [['Enquiries', enquiries.filter(matches)], ['Active', active.filter(matches)], ['Completed', completed.filter(matches)], ['Not going ahead', declined.filter(matches)]];
@@ -2900,7 +2994,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 12:38</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 12:52</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
