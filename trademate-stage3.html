@@ -659,6 +659,34 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 .dra { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .dra .pill { font-size: 11px; padding: 2px 8px; }
 .dhd.mo.sub { margin-left: 30px; width: calc(100% - 46px); }
+/* --- Plan tab: Calendar | Map --- */
+#tab-map { padding: 0; overflow: hidden; }
+.planseg { position: absolute; top: calc(8px + var(--safe-t)); left: 16px; right: 16px; z-index: 700; margin: 0; background: var(--nav); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.planmap { position: absolute; inset: 0; }
+.planmap .maptop { top: calc(64px + var(--safe-t)); }
+.plancal { position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: calc(64px + var(--safe-t)) 0 calc(100px + var(--safe-b)); }
+.calhead { display: flex; align-items: center; gap: 8px; padding: 6px 16px 10px; }
+.calhead .rbtn { width: 40px; height: 40px; background: var(--card); }
+.calttl { flex: 1; text-align: center; font-family: var(--display); font-weight: 700; font-size: 20px; }
+.calnow { min-height: 40px; }
+.calcard { padding: 12px 10px 12px; }
+.cweek, .cgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cweek span { text-align: center; font-size: 12px; font-weight: 700; color: var(--sub); padding-bottom: 6px; }
+.cday { aspect-ratio: 1 / 1.05; border: 0; border-radius: 12px; background: none; color: var(--text); font: inherit; font-weight: 600; font-size: 15px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0; cursor: pointer; }
+.cday.out { cursor: default; }
+.cday.today span:first-child { color: var(--accent); font-weight: 800; }
+.cday.today { box-shadow: inset 0 0 0 1.5px var(--brass); }
+.cday.sel { background: var(--card2) !important; box-shadow: inset 0 0 0 1.5px var(--text); }
+.cdots { display: flex; gap: 3px; height: 6px; }
+.cdot { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--sub); }
+.cdot.col { background: #F3A35B; } .cdot.del { background: var(--dblue); } .cdot.meet { background: #C9B8F5; }
+.cdot.done { opacity: .35; }
+.clegend { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 6px 0; font-size: 12px; color: var(--sub); }
+.clegend span { display: inline-flex; align-items: center; gap: 6px; }
+.calsum { margin: -4px 26px 12px; }
+.calrow { width: 100%; border: 0; background: none; color: var(--text); font: inherit; text-align: left; padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); display: flex; cursor: pointer; }
+.cap + .calrow, .cap + .hint + .calrow { border-top: 0; margin-top: 4px; }
 /* ================== END INK & BRASS REDESIGN ================== */
 </style>
 </head>
@@ -671,7 +699,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
 <nav id="tabbar">
   <button data-tab="timer" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>Today</button>
   <button data-tab="jobs"><svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M2.5 12.5h19"/></svg>Jobs</button>
-  <button data-tab="map"><svg viewBox="0 0 24 24"><path d="M9 4.5 3.5 6.8v12.7L9 17.2l6 2.3 5.5-2.3V4.5L15 6.8 9 4.5z"/><path d="M9 4.5v12.7M15 6.8v12.7"/></svg>Map</button>
+  <button data-tab="map"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>Plan</button>
   <button data-tab="money"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12v4M4 7v11a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14.5h.01"/></svg>Money</button>
   <button data-tab="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Account</button>
 </nav>
@@ -1406,7 +1434,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     renderTimerDynamic();
     renderComingUp();
     renderJobList();
-    if (activeTab === 'map') renderMapTab();
+    if (activeTab === 'map') renderPlan();
     if (activeTab === 'money' && moneyRender) moneyRender();
     stack.forEach(o => o.refresh && o.refresh());
   }
@@ -2570,9 +2598,91 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
   // MAP TAB (JobMapView.swift)
   // =========================================================================================
   let jobMap = null, jobMarkers = null, selectedMapJob = null;
+
+  // =========================================================================================
+  // PLAN TAB — Calendar | Map
+  // =========================================================================================
+  let planView = 'calendar';
+  const calView = { month: null, sel: null };
+  function renderPlan() {
+    const tab = $('tab-map');
+    if (!tab.dataset.plan) {
+      tab.dataset.plan = '1';
+      tab.innerHTML = `<div class="seg planseg" role="tablist"><button data-pv2="calendar">Calendar</button><button data-pv2="map">Map</button></div>
+        <div id="plancal" class="plancal"></div><div id="planmap" class="planmap"></div>`;
+      tab.querySelectorAll('[data-pv2]').forEach(b => b.onclick = () => { planView = b.dataset.pv2; renderPlan(); });
+    }
+    tab.querySelectorAll('[data-pv2]').forEach(b => { b.classList.toggle('on', b.dataset.pv2 === planView); b.setAttribute('aria-selected', b.dataset.pv2 === planView); });
+    $('plancal').style.display = planView === 'calendar' ? '' : 'none';
+    $('planmap').style.display = planView === 'map' ? '' : 'none';
+    if (planView === 'calendar') { if (locWatch !== null) stopLocating(); renderCalendar(); }
+    else { renderMapTab(); if (jobMap) setTimeout(() => jobMap.invalidateSize(), 0); }
+  }
+  function calEvents() {   // every dated item on every job (except ones not going ahead)
+    const ev = [];
+    S.jobs.forEach(j => {
+      if (j.status === 'Declined') return;
+      dateFields(j).forEach(([f, k]) => { if (j[f]) ev.push({ j, f, k, iso: j[f], time: timeOf(j, f), done: isDone(j, f) || j.status === 'Completed',
+        type: f === 'meetingDate' ? 'meet' : f === 'collectionDate' ? 'col' : 'del' }); });
+    });
+    return ev;
+  }
+  function renderCalendar() {
+    const box = $('plancal'); if (!box) return;
+    const todayISO = isoOf(Date.now());
+    if (!calView.month) { const d = new Date(); calView.month = new Date(d.getFullYear(), d.getMonth(), 1).getTime(); }
+    if (!calView.sel) calView.sel = todayISO;
+    const m0 = new Date(calView.month), y = m0.getFullYear(), m = m0.getMonth();
+    const ev = calEvents(), byDay = new Map();
+    ev.forEach(e => { if (!byDay.has(e.iso)) byDay.set(e.iso, []); byDay.get(e.iso).push(e); });
+    const hours = new Map(); S.logs.forEach(l => { const k = isoOf(l.start); hours.set(k, (hours.get(k) || 0) + (l.workedSeconds || 0)); });
+    const lead = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+    let cells = '';
+    for (let i = 0; i < 42; i++) {
+      const dn = i - lead + 1;
+      if (i >= 35 && dn > days) break;
+      if (dn < 1 || dn > days) { cells += '<div class="cday out"></div>'; continue; }
+      const iso = `${y}-${String(m + 1).padStart(2, '0')}-${String(dn).padStart(2, '0')}`, list = byDay.get(iso) || [], hrs = (hours.get(iso) || 0) / 3600;
+      const dots = list.slice(0, 4).map(e => `<i class="cdot ${e.type}${e.done ? ' done' : ''}"></i>`).join('');
+      const shade = hrs > 0 ? `background:rgba(226,180,100,${Math.min(0.32, 0.08 + hrs * 0.03).toFixed(2)})` : '';
+      cells += `<button type="button" class="cday${iso === todayISO ? ' today' : ''}${iso === calView.sel ? ' sel' : ''}" data-day="${iso}" style="${shade}" aria-label="${dn} ${MONTH[m]}${list.length ? ', ' + list.length + ' item' + (list.length === 1 ? '' : 's') : ''}"><span>${dn}</span><span class="cdots">${dots}</span></button>`;
+    }
+    const monthEv = ev.filter(e => e.iso.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`));
+    const cnt = t => monthEv.filter(e => e.type === t).length;
+    const selList = (byDay.get(calView.sel) || []).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    const selHrs = (hours.get(calView.sel) || 0);
+    const selDate = fromISO(calView.sel);
+    box.innerHTML = `
+      <div class="calhead"><button type="button" class="rbtn" data-cm="-1" aria-label="Previous month"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+        <div class="calttl">${MONTH[m]} ${y}</div>
+        <button type="button" class="rbtn" data-cm="1" aria-label="Next month"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+        <button type="button" class="btn tint small calnow" data-ctoday>Today</button></div>
+      <div class="card calcard"><div class="cweek">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(d => `<span>${d}</span>`).join('')}</div><div class="cgrid">${cells}</div>
+        <div class="clegend"><span><i class="cdot col"></i>Collect / drop-off</span><span><i class="cdot del"></i>Deliver / pick-up</span><span><i class="cdot meet"></i>Meeting</span></div></div>
+      <div class="hint calsum">${MONTH[m]}: ${cnt('col')} ${cnt('col') === 1 ? 'collection' : 'collections'} · ${cnt('del')} ${cnt('del') === 1 ? 'delivery' : 'deliveries'} · ${cnt('meet')} ${cnt('meet') === 1 ? 'meeting' : 'meetings'}</div>
+      <div class="card"><div class="cap">${WD[selDate.getDay()]} ${selDate.getDate()} ${MONTH[selDate.getMonth()]}${calView.sel === todayISO ? ' · Today' : ''}</div>
+        ${selHrs ? `<div class="hint" style="margin-top:4px">${Duration.decimalHours(selHrs)} hrs worked</div>` : ''}
+        ${selList.length ? selList.map((e, i) => `<button type="button" class="uprow calrow" data-cev="${i}">${dateTile(e.k, e.done ? 'var(--green-t)' : e.type === 'col' ? '#F3A35B' : e.type === 'meet' ? '#C9B8F5' : 'var(--dblue)')}
+            <span class="upt"><b>${esc(e.done ? e.k.done : e.k.short)}</b><span>${esc(e.j.customerName)} · ${esc(e.j.jobDescription)}</span></span>
+            <span class="upw" style="color:${e.done ? 'var(--green-t)' : 'var(--sub)'}">${e.done ? 'Done' : esc(e.time || 'Any time')}</span></button>`).join('')
+          : '<div class="hint" style="margin-top:10px">Nothing booked on this day.</div>'}</div>`;
+    box.querySelectorAll('[data-cm]').forEach(b => b.onclick = () => { const d = new Date(calView.month); calView.month = new Date(d.getFullYear(), d.getMonth() + +b.dataset.cm, 1).getTime(); renderCalendar(); });
+    box.querySelector('[data-ctoday]').onclick = () => { const d = new Date(); calView.month = new Date(d.getFullYear(), d.getMonth(), 1).getTime(); calView.sel = todayISO; renderCalendar(); };
+    box.querySelectorAll('[data-day]').forEach(b => b.onclick = () => { calView.sel = b.dataset.day; renderCalendar(); });
+    box.querySelectorAll('[data-cev]').forEach(b => b.onclick = () => {
+      const e = selList[+b.dataset.cev];
+      const acts = [];
+      if (!e.done) acts.push({ label: '✓ ' + e.k.mark, action: () => markDone(e.j.id, e.f) });
+      acts.push({ label: 'Open job', action: () => openJobDetail(e.j.id) });
+      if (JobLocation.has(e.j)) acts.push({ label: 'Show on map', action: () => { planView = 'map'; selectedMapJob = e.j.id; renderPlan(); renderMapCard(); } });
+      acts.push({ label: 'Cancel', role: 'cancel' });
+      actionSheet(`${e.k.short} · ${e.j.customerName}`, `${shortWhen(e.j, e.f)}${e.done ? ' · done' : ''}`, acts);
+    });
+  }
+
   let mapFilter = 'all', mapQuery = '';
   function renderMapTab() {
-    const tab = $('tab-map');
+    const tab = $('planmap'); if (!tab) return;
     if (!tab.dataset.built) {
       tab.dataset.built = '1';
       tab.innerHTML = `<div id="jobmap"></div>
@@ -2994,7 +3104,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
       <div class="sh">Plan</div><div class="group"><div class="row"><span>Current plan</span><span class="v">Development build – all features unlocked</span></div></div>
       <div class="group" style="margin-top:20px"><div class="row tap chev" id="ac-guide"><span class="arow"><span class="atile" style="background:#E8C78E"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#0B1220" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13"/></svg></span>Quick guide</span><span></span></div></div>
       <div class="group" style="margin-top:20px"><div class="row"><span>Version</span><span class="v">Stage 3 · web test build</span></div>
-        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 12:52</span></div></div>
+        <div class="row"><span>Last updated</span><span class="v">4 Oct 2026, 13:05</span></div></div>
       <div class="sf">This web test uses its own storage and never touches your older TradeMate web app's data.</div>
       <div style="height:30px"></div>`;
     $('ac-earn').onclick = () => showTab('money');
@@ -4182,7 +4292,7 @@ html, body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "SF Pro 
     activeTab = name;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
     document.querySelectorAll('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
-    if (name === 'map') renderMapTab();
+    if (name === 'map') renderPlan();
     if (name === 'account') renderAccount();
     if (name === 'money') renderMoneyTab();
   }
